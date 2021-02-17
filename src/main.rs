@@ -13,13 +13,17 @@ use std::process::Command;
 use std::process::Stdio;
 
 fn main() {
-    let (text, _args) = match read_text() {
+    let (text, args) = match read_text() {
         Ok(text) => text,
         Err(error) => {
             error.print();
             return;
         }
     };
+
+    if dbg_pipeline(&text, args) {
+        return;
+    }
 
     let code = match compiler::main(&text) {
         Ok(code) => code,
@@ -81,4 +85,42 @@ fn clang(code: String) -> Result<(), Error> {
     } else {
         err!("clang non-zero", clang_status)
     }
+}
+
+fn dbg_pipeline(text: &str, args: HashSet<String>) -> bool {
+    macro_rules! dbg_pipeline {
+        ($text:ident, $args:ident, $arg:literal, $stage:path) => {
+            if $args.contains($arg) {
+                dbg!($stage($text));
+                return true;
+            }
+        };
+    }
+
+    macro_rules! dbg_pipeline_err {
+        ($text:ident, $args:ident, $arg:literal, $stage:path) => {
+            if $args.contains($arg) {
+                match $stage($text) {
+                    Ok(code) => {
+                        dbg!(code);
+                    }
+                    Err(error) => {
+                        error.print(text);
+                    }
+                };
+                return true;
+            }
+        };
+    }
+
+    dbg_pipeline!(text, args, "--lex", compiler::lex);
+    dbg_pipeline!(text, args, "--literalise", compiler::literalise);
+    dbg_pipeline!(text, args, "--treeify", compiler::treeify);
+    dbg_pipeline_err!(text, args, "--parse", compiler::parse);
+    dbg_pipeline_err!(text, args, "--resolve", compiler::resolve);
+    dbg_pipeline_err!(text, args, "--typecheck", compiler::typecheck);
+    dbg_pipeline_err!(text, args, "--generate", compiler::generate);
+    dbg_pipeline_err!(text, args, "--emit", compiler::emit);
+
+    false
 }
