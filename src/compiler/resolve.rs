@@ -8,6 +8,7 @@ use super::symbol::Type;
 pub fn resolve(program: Program, mut namespace: Namespace) -> Result<(Program, Namespace), Error> {
     for def in &program.defs {
         let name = def.name.0.clone();
+        let mut def_namespace = Namespace::new();
 
         let mut params = Vec::new();
         for param in &def.func.params {
@@ -25,7 +26,7 @@ pub fn resolve(program: Program, mut namespace: Namespace) -> Result<(Program, N
             params.push(param_type);
 
             let symbol = Symbol::Var(Type::Terminal(param_type));
-            namespace.insert(param_name, symbol);
+            def_namespace.insert(param_name, symbol);
         }
 
         let ret = if let Some(symbol) = namespace.get(&def.func.ret.0) {
@@ -39,7 +40,7 @@ pub fn resolve(program: Program, mut namespace: Namespace) -> Result<(Program, N
         };
 
         let symbol = Symbol::Var(Type::Func(Func { params, ret }));
-        namespace.insert(name, symbol);
+        namespace.insert_with_namespace(name, symbol, def_namespace);
     }
 
     Ok((program, namespace))

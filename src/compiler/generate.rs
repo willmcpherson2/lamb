@@ -125,6 +125,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
 
     for def in &program.defs {
         let def_id = def.name.0.clone();
+        let def_namespace = &namespace.get_namespace(&def.name.0).unwrap();
 
         let mut params = Vec::new();
         for param in &def.func.params {
@@ -154,7 +155,13 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
         id_map.add();
 
         let mut instructions = Vec::new();
-        let ret_data = generate_expr(&def.expr, &mut instructions, &mut id_map, &namespace);
+        let ret_data = generate_expr(
+            &def.expr,
+            &mut instructions,
+            &mut id_map,
+            &namespace,
+            def_namespace,
+        );
         let ret_instruction = Instruction::Ret(Ret {
             typ: *ret,
             data: ret_data,
@@ -180,9 +187,14 @@ fn generate_expr(
     instructions: &mut Vec<Instruction>,
     id_map: &mut IdMap,
     namespace: &Namespace,
+    def_namespace: &Namespace,
 ) -> Option<Data> {
     match expr {
-        Expr::Val((token, _)) => match namespace.get(&token).unwrap() {
+        Expr::Val((token, _)) => match def_namespace
+            .get(&token)
+            .or_else(|| namespace.get(&token))
+            .unwrap()
+        {
             Symbol::Var(_) => Some(Data::Id(id_map.get(&token))),
             Symbol::Literal(_) => Some(Data::Literal(token.clone())),
             _ => panic!(),
@@ -203,8 +215,12 @@ fn generate_expr(
                     let child1 = children.get(0).unwrap();
                     let child2 = children.get(1).unwrap();
 
-                    let arg1 = generate_expr(&child1, instructions, id_map, namespace).unwrap();
-                    let arg2 = generate_expr(&child2, instructions, id_map, namespace).unwrap();
+                    let arg1 =
+                        generate_expr(&child1, instructions, id_map, namespace, def_namespace)
+                            .unwrap();
+                    let arg2 =
+                        generate_expr(&child2, instructions, id_map, namespace, def_namespace)
+                            .unwrap();
 
                     let out = id_map.add();
 
@@ -224,8 +240,12 @@ fn generate_expr(
                     let child1 = children.get(0).unwrap();
                     let child2 = children.get(1).unwrap();
 
-                    let arg1 = generate_expr(&child1, instructions, id_map, namespace).unwrap();
-                    let arg2 = generate_expr(&child2, instructions, id_map, namespace).unwrap();
+                    let arg1 =
+                        generate_expr(&child1, instructions, id_map, namespace, def_namespace)
+                            .unwrap();
+                    let arg2 =
+                        generate_expr(&child2, instructions, id_map, namespace, def_namespace)
+                            .unwrap();
 
                     let out = id_map.add();
 
@@ -244,7 +264,8 @@ fn generate_expr(
                 "!" => {
                     let child = children.get(0).unwrap();
 
-                    let arg = generate_expr(&child, instructions, id_map, namespace).unwrap();
+                    let arg = generate_expr(&child, instructions, id_map, namespace, def_namespace)
+                        .unwrap();
 
                     let out = id_map.add();
 
@@ -264,7 +285,9 @@ fn generate_expr(
 
                     let mut args = Vec::new();
                     for (typ, child) in params.iter().zip(children.iter()) {
-                        let data = generate_expr(&child, instructions, id_map, namespace).unwrap();
+                        let data =
+                            generate_expr(&child, instructions, id_map, namespace, def_namespace)
+                                .unwrap();
                         let arg = Arg { typ: *typ, data };
                         args.push(arg);
                     }

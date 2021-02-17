@@ -6,11 +6,17 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Namespace {
-    namespace: HashMap<String, Symbol>,
+    namespace: HashMap<String, (Symbol, Namespace)>,
 }
 
 impl Namespace {
     pub fn new() -> Self {
+        Namespace {
+            namespace: HashMap::new(),
+        }
+    }
+
+    pub fn new_global() -> Self {
         let builtins = vec![
             ("void", Symbol::Type(Type::Terminal(Terminal::Void))),
             ("bool", Symbol::Type(Type::Terminal(Terminal::Bool))),
@@ -41,17 +47,25 @@ impl Namespace {
 
         let mut namespace = HashMap::new();
         for (key, val) in builtins.into_iter() {
-            namespace.insert(key.to_string(), val);
+            namespace.insert(key.to_string(), (val, Namespace::new()));
         }
 
         Namespace { namespace }
     }
 
     pub fn get(&self, key: &str) -> Option<&Symbol> {
-        self.namespace.get(key)
+        self.namespace.get(key).map(|(symbol, _)| symbol)
+    }
+
+    pub fn get_namespace(&self, key: &str) -> Option<&Namespace> {
+        self.namespace.get(key).map(|(_, namespace)| namespace)
     }
 
     pub fn insert(&mut self, key: String, val: Symbol) {
-        self.namespace.insert(key, val);
+        self.namespace.insert(key, (val, Namespace::new()));
+    }
+
+    pub fn insert_with_namespace(&mut self, key: String, val: Symbol, namespace: Namespace) {
+        self.namespace.insert(key, (val, namespace));
     }
 }

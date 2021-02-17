@@ -8,8 +8,9 @@ use super::symbol::Type;
 
 pub fn typecheck(program: Program, namespace: Namespace) -> Result<(Program, Namespace), Error> {
     for def in &program.defs {
+        let def_namespace = &namespace.get_namespace(&def.name.0).unwrap();
         if let Some(Symbol::Type(Type::Terminal(ret))) = namespace.get(&def.func.ret.0) {
-            typecheck_expr(&def.expr, *ret, &namespace)?;
+            typecheck_expr(&def.expr, *ret, &namespace, def_namespace)?;
         } else {
             panic!()
         }
@@ -17,10 +18,15 @@ pub fn typecheck(program: Program, namespace: Namespace) -> Result<(Program, Nam
     Ok((program, namespace))
 }
 
-fn typecheck_expr(expr: &Expr, ret: Terminal, namespace: &Namespace) -> Result<(), Error> {
+fn typecheck_expr(
+    expr: &Expr,
+    ret: Terminal,
+    namespace: &Namespace,
+    def_namespace: &Namespace,
+) -> Result<(), Error> {
     match expr {
         Expr::Val((token, location)) => {
-            if let Some(symbol) = namespace.get(&token) {
+            if let Some(symbol) = def_namespace.get(&token).or_else(|| namespace.get(&token)) {
                 let terminal = if let Symbol::Literal(terminal) = symbol {
                     terminal
                 } else if let Symbol::Var(Type::Terminal(terminal)) = symbol {
@@ -40,7 +46,9 @@ fn typecheck_expr(expr: &Expr, ret: Terminal, namespace: &Namespace) -> Result<(
         Expr::Expr((exprs, location)) => {
             if let Some(expr) = exprs.first() {
                 if let Expr::Val((token, location)) = expr {
-                    if let Some(symbol) = namespace.get(&token) {
+                    if let Some(symbol) =
+                        def_namespace.get(&token).or_else(|| namespace.get(&token))
+                    {
                         if let Symbol::Var(Type::Func(func)) = symbol {
                             if func.ret != ret {
                                 return err!("func type mismatch", *location, ret, func.ret);
@@ -49,7 +57,7 @@ fn typecheck_expr(expr: &Expr, ret: Terminal, namespace: &Namespace) -> Result<(
                             let mut exprs_iter = exprs.iter().skip(1);
                             for terminal in &func.params {
                                 if let Some(expr) = exprs_iter.next() {
-                                    typecheck_expr(&expr, *terminal, namespace)?;
+                                    typecheck_expr(&expr, *terminal, namespace, def_namespace)?;
                                 } else {
                                     return err!("expected argument", *location);
                                 }
