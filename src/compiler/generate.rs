@@ -133,6 +133,8 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
             ret: *ret,
         };
         defs.push(def);
+
+        id_map.reset();
     }
 
     Target { defs }

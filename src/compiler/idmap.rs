@@ -30,4 +30,8 @@ impl IdMap {
         self.id_count += 1;
         id
     }
+
+    pub fn reset(&mut self) {
+        self.id_count = 0;
+    }
 }
