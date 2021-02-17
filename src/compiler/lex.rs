@@ -8,7 +8,7 @@ pub struct TokenStream {
 #[derive(Debug)]
 pub enum Token {
     Open(Location),
-    Close(Location),
+    Close,
     Other((String, Location)),
 }
 
@@ -29,7 +29,7 @@ pub fn lex(text: &str) -> TokenStream {
             }
             ')' => {
                 state = State::Ready;
-                tokens.push(Token::Close(location));
+                tokens.push(Token::Close);
             }
             _ if ch.is_whitespace() => {
                 state = State::Ready;

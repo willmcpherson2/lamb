@@ -28,7 +28,7 @@ fn treeify_impl(token_stream_iter: &mut slice::Iter<'_, lex::Token>) -> Option<T
                 }
                 Some(TokenTree::Tree((tree, *location)))
             }
-            lex::Token::Close(_) => None,
+            lex::Token::Close => None,
             lex::Token::Other((ref token, location)) => {
                 Some(TokenTree::Token((token.clone(), *location)))
             }
