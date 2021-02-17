@@ -15,22 +15,21 @@ fn main() {
     let text = match read_text() {
         Ok(text) => text,
         Err(error) => {
-            eprint!("{}", error);
+            error.print();
             return;
         }
     };
 
     let code = match compiler::main(&text) {
         Ok(code) => code,
-        Err(mut error) => {
-            error.add_text(text);
-            eprint!("{}", error);
+        Err(error) => {
+            error.print(&text);
             return;
         }
     };
 
     if let Err(error) = clang(code) {
-        eprint!("{}", error);
+        error.print();
     }
 }
 

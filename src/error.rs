@@ -1,5 +1,3 @@
-use std::fmt;
-
 #[derive(Debug)]
 pub struct Error {
     message: String,
@@ -19,10 +17,9 @@ impl Error {
     }
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
+impl Error {
+    pub fn print(&self) {
+        eprint!(
             "Error: {}\n{}:{}:{}\n",
             self.message, self.lamb_file, self.lamb_line, self.lamb_column
         )

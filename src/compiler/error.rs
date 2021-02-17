@@ -1,10 +1,7 @@
-use std::fmt;
-
 #[derive(Debug)]
 pub struct Error {
     location: usize,
     message: String,
-    text: Option<String>,
     compiler_file: &'static str,
     compiler_line: u32,
     compiler_column: u32,
@@ -14,7 +11,6 @@ impl Error {
     pub fn new(
         location: usize,
         message: String,
-        text: Option<String>,
         compiler_file: &'static str,
         compiler_line: u32,
         compiler_column: u32,
@@ -22,26 +18,15 @@ impl Error {
         Error {
             location,
             message,
-            text,
             compiler_file,
             compiler_line,
             compiler_column,
         }
     }
-
-    pub fn add_text(&mut self, text: String) {
-        self.text = Some(text);
-    }
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let text = if let Some(text) = &self.text {
-            text
-        } else {
-            panic!()
-        };
-
+impl Error {
+    pub fn print(&self, text: &str) {
         enum State {
             Looking,
             Found,
@@ -63,8 +48,7 @@ impl fmt::Display for Error {
                 }
             } else {
                 if ch == '\n' {
-                    return write!(
-                        f,
+                    eprint!(
                         "{}\n{}^\nError: {}\n{}:{}:{}\n",
                         line,
                         " ".repeat(column),
@@ -73,6 +57,7 @@ impl fmt::Display for Error {
                         self.compiler_line,
                         self.compiler_column,
                     );
+                    return;
                 } else {
                     line.push(ch);
                 }
@@ -91,7 +76,7 @@ macro_rules! err {
 
 macro_rules! error_new {
     ($location:expr, $message:expr) => {
-        Error::new($location, $message, None, file!(), line!(), column!())
+        Error::new($location, $message, file!(), line!(), column!())
     };
 }
 
