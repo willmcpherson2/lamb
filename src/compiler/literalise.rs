@@ -9,7 +9,7 @@ pub fn literalise(token_stream: TokenStream) -> (TokenStream, Namespace) {
 
     for token in &token_stream.tokens {
         if let Token::Other((token, _)) = token {
-            if let Some(terminal) = literalise_string(&token) {
+            if let Some(terminal) = literal(&token) {
                 namespace.insert(token.clone(), Symbol::Literal(terminal));
             }
         }
@@ -18,24 +18,10 @@ pub fn literalise(token_stream: TokenStream) -> (TokenStream, Namespace) {
     (token_stream, namespace)
 }
 
-fn literalise_string(token: &str) -> Option<Terminal> {
-    if let Some(literal) = literal(token) {
-        Some(literal)
-    } else {
-        None
-    }
-}
-
 fn literal(token: &str) -> Option<Terminal> {
-    if let Some(node) = boolean(token) {
-        Some(node)
-    } else if let Some(node) = integer(token) {
-        Some(node)
-    } else if let Some(node) = float(token) {
-        Some(node)
-    } else {
-        None
-    }
+    boolean(token)
+        .or_else(|| integer(token))
+        .or_else(|| float(token))
 }
 
 fn boolean(token: &str) -> Option<Terminal> {
