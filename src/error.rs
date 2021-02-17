@@ -48,11 +48,16 @@ macro_rules! error {
     }};
 
     ("file error", $filename:expr) => {{
-        error_new!(format!("Could not read file `{}`. Does the file exist?", $filename))
+        error_new!(format!(
+            "Could not read file `{}`. Does the file exist?",
+            $filename
+        ))
     }};
 
     ("clang spawn failed") => {{
-        error_new!(format!("Could not spawn clang. Is it installed? Is it in your $PATH?"))
+        error_new!(format!(
+            "Could not spawn clang. Is it installed? Is it in your $PATH?"
+        ))
     }};
 
     ("clang stdin failed") => {{
