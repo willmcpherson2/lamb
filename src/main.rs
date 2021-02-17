@@ -5,6 +5,7 @@ mod error;
 mod compiler;
 
 use error::Error;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -12,7 +13,7 @@ use std::process::Command;
 use std::process::Stdio;
 
 fn main() {
-    let text = match read_text() {
+    let (text, _args) = match read_text() {
         Ok(text) => text,
         Err(error) => {
             error.print();
@@ -33,11 +34,19 @@ fn main() {
     }
 }
 
-fn read_text() -> Result<String, Error> {
-    let mut args = env::args();
-    args.next().ok_or_else(|| error!("expected arg 1"))?;
-    let filename = args.next().ok_or_else(|| error!("expected filename"))?;
-    fs::read_to_string(&filename).map_err(|_| error!("file error", filename))
+fn read_text() -> Result<(String, HashSet<String>), Error> {
+    let mut filename = None;
+    let mut args = HashSet::new();
+    for arg in env::args().skip(1) {
+        if arg.starts_with('-') {
+            args.insert(arg);
+        } else {
+            filename = Some(arg);
+        }
+    }
+    let filename = filename.ok_or_else(|| error!("expected filename"))?;
+    let text = fs::read_to_string(&filename).map_err(|_| error!("file error", filename))?;
+    Ok((text, args))
 }
 
 fn clang(code: String) -> Result<(), Error> {

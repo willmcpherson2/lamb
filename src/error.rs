@@ -43,10 +43,6 @@ macro_rules! error {
         error_new!(format!("unimplemented"))
     }};
 
-    ("expected arg 1") => {{
-        error_new!(format!("Expected at least 1 command line argument (program name). Maybe something is wrong with your shell?"))
-    }};
-
     ("expected filename") => {{
         error_new!(format!("Expected filename."))
     }};
