@@ -1,5 +1,4 @@
 use super::common::Id;
-use super::idmap::IdMap;
 use super::namespace::Namespace;
 use super::parse::Expr;
 use super::parse::Program;
@@ -7,6 +6,7 @@ use super::symbol::Func;
 use super::symbol::Symbol;
 use super::symbol::Terminal;
 use super::symbol::Type;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Target {
@@ -82,6 +82,41 @@ pub struct Mul {
 pub struct Not {
     pub out: Id,
     pub arg: Data,
+}
+
+struct IdMap {
+    ids: HashMap<String, Id>,
+    id_count: Id,
+}
+
+impl IdMap {
+    fn new() -> Self {
+        IdMap {
+            ids: HashMap::new(),
+            id_count: 0,
+        }
+    }
+
+    fn get(&self, key: &str) -> Id {
+        *self.ids.get(key).unwrap()
+    }
+
+    fn insert(&mut self, key: String) -> Id {
+        let id = self.id_count;
+        self.ids.insert(key, id);
+        self.id_count += 1;
+        id
+    }
+
+    fn add(&mut self) -> Id {
+        let id = self.id_count;
+        self.id_count += 1;
+        id
+    }
+
+    fn reset(&mut self) {
+        self.id_count = 0;
+    }
 }
 
 pub fn generate(program: Program, namespace: Namespace) -> Target {

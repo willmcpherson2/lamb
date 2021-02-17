@@ -3,7 +3,6 @@ pub mod error;
 mod common;
 mod emit;
 mod generate;
-mod idmap;
 mod lex;
 mod literalise;
 mod namespace;
