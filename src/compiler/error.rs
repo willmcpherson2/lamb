@@ -26,6 +26,11 @@ impl Error {
             compiler_column,
         }
     }
+
+    #[cfg(test)]
+    pub fn name<'a>(&'a self) -> &'a str {
+        self.name
+    }
 }
 
 impl Error {

@@ -9,6 +9,8 @@ mod namespace;
 mod parse;
 mod resolve;
 mod symbol;
+#[cfg(test)]
+mod test;
 mod treeify;
 mod typecheck;
 
