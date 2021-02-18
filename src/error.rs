@@ -23,9 +23,7 @@ impl Error {
             lamb_column,
         }
     }
-}
 
-impl Error {
     pub fn print(&self) {
         eprint!(
             "Error: {}\n{}:{}:{}\n",

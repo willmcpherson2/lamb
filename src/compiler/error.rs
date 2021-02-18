@@ -31,9 +31,7 @@ impl Error {
     pub fn name<'a>(&'a self) -> &'a str {
         self.name
     }
-}
 
-impl Error {
     pub fn print(&self, text: &str) {
         enum State {
             Looking,
