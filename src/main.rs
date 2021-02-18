@@ -48,8 +48,8 @@ fn read_text() -> Result<(String, HashSet<String>), Error> {
             filename = Some(arg);
         }
     }
-    let filename = filename.ok_or_else(|| error!("expected filename"))?;
-    let text = fs::read_to_string(&filename).map_err(|_| error!("file error", filename))?;
+    let filename = filename.ok_or_else(|| error!(expected_filename))?;
+    let text = fs::read_to_string(&filename).map_err(|_| error!(file_error, filename))?;
     Ok((text, args))
 }
 
@@ -58,32 +58,32 @@ fn clang(code: String) -> Result<(), Error> {
         .args(&["-x", "ir", "-"])
         .stdin(Stdio::piped())
         .spawn()
-        .map_err(|_| error!("clang spawn failed"))?;
+        .map_err(|_| error!(clang_spawn_failed))?;
 
     let clang_in = clang
         .stdin
         .as_mut()
-        .ok_or_else(|| error!("clang stdin failed"))?;
+        .ok_or_else(|| error!(clang_stdin_failed))?;
 
     clang_in
         .write_all(code.as_bytes())
-        .map_err(|_| error!("clang write failed"))?;
+        .map_err(|_| error!(clang_write_failed))?;
 
     let clang_out = clang
         .wait_with_output()
-        .map_err(|_| error!("clang output failed"))?;
+        .map_err(|_| error!(clang_output_failed))?;
 
     eprint!("{}", String::from_utf8_lossy(&clang_out.stderr));
 
     let clang_status = clang_out
         .status
         .code()
-        .ok_or_else(|| error!("clang status failed"))?;
+        .ok_or_else(|| error!(clang_status_failed))?;
 
     if clang_status == 0 {
         Ok(())
     } else {
-        err!("clang non-zero", clang_status)
+        err!(clang_non_zero, clang_status)
     }
 }
 

@@ -45,15 +45,15 @@ fn typecheck_val(
     if let Some(symbol) = def_namespace.get(token).or_else(|| namespace.get(token)) {
         let terminal = match symbol {
             Symbol::Literal(terminal) | Symbol::Var(Type::Terminal(terminal)) => terminal,
-            _ => return err!("expected literal or var", location),
+            _ => return err!(expected_literal_or_var, location),
         };
 
         if *terminal != ret {
-            return err!("type mismatch", location, ret, *terminal);
+            return err!(type_mismatch, location, ret, *terminal);
         }
         Ok(())
     } else {
-        err!("expected defined symbol", location, &token)
+        err!(expected_defined_symbol, location, &token)
     }
 }
 
@@ -68,7 +68,7 @@ fn typecheck_exprs(
         expr
     } else {
         if ret != Terminal::Void {
-            return err!("type mismatch", location, ret, Terminal::Void);
+            return err!(type_mismatch, location, ret, Terminal::Void);
         }
         return Ok(());
     };
@@ -76,23 +76,23 @@ fn typecheck_exprs(
     let (token, location) = if let Expr::Val(val) = expr {
         val
     } else {
-        return err!("expected func", location);
+        return err!(expected_func, location);
     };
 
     let symbol = if let Some(symbol) = def_namespace.get(&token).or_else(|| namespace.get(&token)) {
         symbol
     } else {
-        return err!("expected defined symbol", *location, token);
+        return err!(expected_defined_symbol, *location, token);
     };
 
     let func = if let Symbol::Var(Type::Func(func)) = symbol {
         func
     } else {
-        return err!("expected func", *location);
+        return err!(expected_func, *location);
     };
 
     if func.ret != ret {
-        return err!("func type mismatch", *location, ret, func.ret);
+        return err!(func_type_mismatch, *location, ret, func.ret);
     }
 
     let mut params = func.params.iter();
@@ -102,10 +102,10 @@ fn typecheck_exprs(
             (None, None) => return Ok(()),
             (None, Some(arg)) => match arg {
                 Expr::Val((_, location)) | Expr::Expr((_, location)) => {
-                    return err!("unexpected argument", *location);
+                    return err!(unexpected_argument, *location);
                 }
             },
-            (Some(_), None) => return err!("expected argument", *location),
+            (Some(_), None) => return err!(expected_argument, *location),
             (Some(param), Some(arg)) => {
                 typecheck_expr(arg, *param, namespace, def_namespace)?;
             }

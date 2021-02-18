@@ -37,9 +37,9 @@ fn get_terminal(typ: &str, location: Location, namespace: &Namespace) -> Result<
         if let Symbol::Type(Type::Terminal(terminal)) = symbol {
             Ok(*terminal)
         } else {
-            err!("expected terminal type", location)
+            err!(expected_terminal_type, location)
         }
     } else {
-        err!("expected defined type", location, typ)
+        err!(expected_defined_type, location, typ)
     }
 }

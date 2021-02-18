@@ -1,5 +1,6 @@
 #[derive(Debug)]
 pub struct Error {
+    name: &'static str,
     location: usize,
     message: String,
     compiler_file: &'static str,
@@ -9,6 +10,7 @@ pub struct Error {
 
 impl Error {
     pub fn new(
+        name: &'static str,
         location: usize,
         message: String,
         compiler_file: &'static str,
@@ -16,6 +18,7 @@ impl Error {
         compiler_column: u32,
     ) -> Self {
         Error {
+            name,
             location,
             message,
             compiler_file,
@@ -74,99 +77,114 @@ macro_rules! err {
     }
 }
 
-macro_rules! error_new {
-    ($location:expr, $message:expr) => {
-        Error::new($location, $message, file!(), line!(), column!())
+macro_rules! error {
+    () => {
+        error_impl!(unimplemented)
+    };
+    ($name:tt, $($args:tt)*) => {
+        error_impl!($name, $name, $($args)*)
     };
 }
 
-macro_rules! error {
-    () => {{
-        let message = format!("unimplemented");
-        error_new!(0, message)
-    }};
+macro_rules! error_new {
+    ($name:tt, $location:expr, $message:expr) => {
+        Error::new(
+            stringify!($name),
+            $location,
+            $message,
+            file!(),
+            line!(),
+            column!(),
+        )
+    };
+}
 
-    ("expected paren", $location:expr, $token:expr) => {{
-        error_new!($location, format!("Unexpected lone token `{}`. You may be missing some parentheses.", $token))
-    }};
+macro_rules! error_impl {
+    ($name:tt) => {
+        error_new!($name, 0, stringify!($name).to_string())
+    };
 
-    ("expected func type after name", $location:expr) => {{
-        error_new!($location, format!("Expected function type after this definition name."))
-    }};
+    (expected_paren, $name:tt, $location:expr, $token:expr) => {
+        error_new!($name, $location, format!("Unexpected lone token `{}`. You may be missing some parentheses.", $token))
+    };
 
-    ("expected func expr", $location:expr) => {{
-        error_new!($location, format!("Expected function expression after this function type."))
-    }};
+    (expected_func_type_after_name, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected function type after this definition name."))
+    };
 
-    ("expected func ret terminal type", $location:expr) => {{
-        error_new!($location, format!("Unexpected nesting in function return type."))
-    }};
+    (expected_func_expr, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected function expression after this function type."))
+    };
 
-    ("expected def", $location:expr, $token:expr) => {{
-        error_new!($location, format!("Expected definition, got lone token {}.", $token))
-    }};
+    (expected_func_ret_terminal_type, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Unexpected nesting in function return type."))
+    };
 
-    ("expected type", $location:expr) => {{
-        error_new!($location, format!("Expected at least one type inside function type. Try adding `void`."))
-    }};
+    (expected_def, $name:tt, $location:expr, $token:expr) => {
+        error_new!($name, $location, format!("Expected definition, got lone token {}.", $token))
+    };
 
-    ("expected param", $location:expr) => {{
-        error_new!($location, format!("Expected a parameter consisting of a name and a type."))
-    }};
+    (expected_type, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected at least one type inside function type. Try adding `void`."))
+    };
 
-    ("expected param name", $location:expr) => {{
-        error_new!($location, format!("Unexpected nesting, expected a name for a parameter."))
-    }};
+    (expected_param, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected a parameter consisting of a name and a type."))
+    };
 
-    ("expected param type", $location:expr) => {{
-        error_new!($location, format!("Unexpected nesting, expected a type for a parameter."))
-    }};
+    (expected_param_name, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Unexpected nesting, expected a name for a parameter."))
+    };
 
-    ("expected name", $location:expr) => {{
-        error_new!($location, format!("Expected a name to start definition."))
-    }};
+    (expected_param_type, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Unexpected nesting, expected a type for a parameter."))
+    };
 
-    ("expected func type", $location:expr) => {{
-        error_new!($location, format!("Expected function type consisting of parameters and a return type."))
-    }};
+    (expected_name, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected a name to start definition."))
+    };
 
-    ("expected defined type", $location:expr, $token:expr) => {{
-        error_new!($location, format!("No such type `{}`.", $token))
-    }};
+    (expected_func_type, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected function type consisting of parameters and a return type."))
+    };
 
-    ("expected defined symbol", $location:expr, $token:expr) => {{
-        error_new!($location, format!("Symbol `{}` is undefined.", $token))
-    }};
+    (expected_defined_type, $name:tt, $location:expr, $token:expr) => {
+        error_new!($name, $location, format!("No such type `{}`.", $token))
+    };
 
-    ("expected terminal type", $location:expr) => {{
-        error_new!($location, format!("Expected terminal type."))
-    }};
+    (expected_defined_symbol, $name:tt, $location:expr, $token:expr) => {
+        error_new!($name, $location, format!("Symbol `{}` is undefined.", $token))
+    };
 
-    ("unexpected token", $location:expr) => {{
-        error_new!($location, format!("Unexpected extra token. Function definition should be a name, type and expression."))
-    }};
+    (expected_terminal_type, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected terminal type."))
+    };
 
-    ("expected literal or var", $location:expr) => {{
-        error_new!($location, format!("Expected a literal, variable or function call."))
-    }};
+    (unexpected_token, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Unexpected extra token. Function definition should be a name, type and expression."))
+    };
 
-    ("expected func", $location:expr) => {{
-        error_new!($location, format!("Expected a function name in the beginning of function call."))
-    }};
+    (expected_literal_or_var, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected a literal, variable or function call."))
+    };
 
-    ("type mismatch", $location:expr, $expected:expr, $got:expr) => {{
-        error_new!($location, format!("This type cannot be used. Expected `{:?}`, but got `{:?}`.", $expected, $got))
-    }};
+    (expected_func, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Expected a function name in the beginning of function call."))
+    };
 
-    ("func type mismatch", $location:expr, $expected:expr, $got:expr) => {{
-        error_new!($location, format!("Function call gives wrong type. Expected `{:?}`, but this returns `{:?}`.", $expected, $got))
-    }};
+    (type_mismatch, $name:tt, $location:expr, $expected:expr, $got:expr) => {
+        error_new!($name, $location, format!("This type cannot be used. Expected `{:?}`, but got `{:?}`.", $expected, $got))
+    };
 
-    ("expected argument", $location:expr) => {{
-        error_new!($location, format!("Missing argument in function call."))
-    }};
+    (func_type_mismatch, $name:tt, $location:expr, $expected:expr, $got:expr) => {
+        error_new!($name, $location, format!("Function call gives wrong type. Expected `{:?}`, but this returns `{:?}`.", $expected, $got))
+    };
 
-    ("unexpected argument", $location:expr) => {{
-        error_new!($location, format!("Unexpected extra argument in function call."))
-    }};
+    (expected_argument, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Missing argument in function call."))
+    };
+
+    (unexpected_argument, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Unexpected extra argument in function call."))
+    };
 }
