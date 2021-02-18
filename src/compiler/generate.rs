@@ -311,7 +311,7 @@ fn generate_call(
     namespace: &Namespace,
     def_namespace: &Namespace,
     children: &[Expr],
-    parent: &String,
+    parent: &str,
 ) -> Id {
     let (params, ret) =
         if let Some(Symbol::Var(Type::Func(Func { params, ret }))) = namespace.get(parent) {
@@ -327,7 +327,7 @@ fn generate_call(
         args.push(arg);
     }
 
-    let call_id = parent.clone();
+    let call_id = parent.to_string();
 
     let out = id_map.add();
 
