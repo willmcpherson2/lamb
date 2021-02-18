@@ -131,26 +131,16 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
         for param in &def.func.params {
             let param_id = id_map.insert(param.name.0.clone());
 
-            let param_type =
-                if let Some(Symbol::Type(Type::Terminal(terminal))) = namespace.get(&param.typ.0) {
-                    terminal
-                } else {
-                    panic!()
-                };
+            let param_type = get_terminal(&param.typ.0, &namespace);
 
             let param = Param {
-                typ: *param_type,
+                typ: param_type,
                 id: param_id,
             };
             params.push(param);
         }
 
-        let ret =
-            if let Some(Symbol::Type(Type::Terminal(terminal))) = namespace.get(&def.func.ret.0) {
-                terminal
-            } else {
-                panic!()
-            };
+        let ret = get_terminal(&def.func.ret.0, &namespace);
 
         id_map.add();
 
@@ -163,7 +153,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
             def_namespace,
         );
         let ret_instruction = Instruction::Ret(Ret {
-            typ: *ret,
+            typ: ret,
             data: ret_data,
         });
         instructions.push(ret_instruction);
@@ -172,7 +162,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
             id: def_id,
             params,
             instructions,
-            ret: *ret,
+            ret,
         };
         defs.push(def);
 
@@ -180,6 +170,14 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
     }
 
     Target { defs }
+}
+
+fn get_terminal(typ: &str, namespace: &Namespace) -> Terminal {
+    if let Some(Symbol::Type(Type::Terminal(terminal))) = namespace.get(typ) {
+        *terminal
+    } else {
+        panic!()
+    }
 }
 
 fn generate_expr(
@@ -190,15 +188,18 @@ fn generate_expr(
     def_namespace: &Namespace,
 ) -> Option<Data> {
     match expr {
-        Expr::Val((token, _)) => match def_namespace
-            .get(&token)
-            .or_else(|| namespace.get(&token))
-            .unwrap()
-        {
-            Symbol::Var(_) => Some(Data::Id(id_map.get(&token))),
-            Symbol::Literal(_) => Some(Data::Literal(token.clone())),
-            _ => panic!(),
-        },
+        Expr::Val((token, _)) => {
+            let symbol = def_namespace
+                .get(&token)
+                .or_else(|| namespace.get(&token))
+                .unwrap();
+
+            match symbol {
+                Symbol::Var(_) => Some(Data::Id(id_map.get(&token))),
+                Symbol::Literal(_) => Some(Data::Literal(token.clone())),
+                _ => panic!(),
+            }
+        }
         Expr::Expr((exprs, _)) => {
             let (parent, children) = if let Some((parent, children)) = exprs.split_first() {
                 if let Expr::Val((parent, _)) = parent {
@@ -211,102 +212,130 @@ fn generate_expr(
             };
 
             match parent.as_str() {
-                "+" => {
-                    let child1 = children.get(0).unwrap();
-                    let child2 = children.get(1).unwrap();
-
-                    let arg1 =
-                        generate_expr(&child1, instructions, id_map, namespace, def_namespace)
-                            .unwrap();
-                    let arg2 =
-                        generate_expr(&child2, instructions, id_map, namespace, def_namespace)
-                            .unwrap();
-
-                    let out = id_map.add();
-
-                    let typ = Terminal::I32;
-
-                    let instruction = Instruction::Add(Add {
-                        out,
-                        typ,
-                        arg1,
-                        arg2,
-                    });
-                    instructions.push(instruction);
-
-                    Some(Data::Id(out))
-                }
-                "*" => {
-                    let child1 = children.get(0).unwrap();
-                    let child2 = children.get(1).unwrap();
-
-                    let arg1 =
-                        generate_expr(&child1, instructions, id_map, namespace, def_namespace)
-                            .unwrap();
-                    let arg2 =
-                        generate_expr(&child2, instructions, id_map, namespace, def_namespace)
-                            .unwrap();
-
-                    let out = id_map.add();
-
-                    let typ = Terminal::F32;
-
-                    let instruction = Instruction::Mul(Mul {
-                        out,
-                        typ,
-                        arg1,
-                        arg2,
-                    });
-                    instructions.push(instruction);
-
-                    Some(Data::Id(out))
-                }
-                "!" => {
-                    let child = children.get(0).unwrap();
-
-                    let arg = generate_expr(&child, instructions, id_map, namespace, def_namespace)
-                        .unwrap();
-
-                    let out = id_map.add();
-
-                    let instruction = Instruction::Not(Not { out, arg });
-                    instructions.push(instruction);
-
-                    Some(Data::Id(out))
-                }
-                _ => {
-                    let (params, ret) = if let Some(Symbol::Var(Type::Func(Func { params, ret }))) =
-                        namespace.get(&parent)
-                    {
-                        (params, ret)
-                    } else {
-                        panic!()
-                    };
-
-                    let mut args = Vec::new();
-                    for (typ, child) in params.iter().zip(children.iter()) {
-                        let data =
-                            generate_expr(&child, instructions, id_map, namespace, def_namespace)
-                                .unwrap();
-                        let arg = Arg { typ: *typ, data };
-                        args.push(arg);
-                    }
-
-                    let call_id = parent.clone();
-
-                    let out = id_map.add();
-
-                    let instruction = Instruction::Call(Call {
-                        out: Some(out),
-                        typ: *ret,
-                        call_id,
-                        args,
-                    });
-                    instructions.push(instruction);
-
-                    Some(Data::Id(out))
-                }
+                "+" => generate_add(instructions, id_map, namespace, def_namespace, children),
+                "*" => generate_mul(instructions, id_map, namespace, def_namespace, children),
+                "!" => generate_not(instructions, id_map, namespace, def_namespace, children),
+                _ => generate_call(
+                    instructions,
+                    id_map,
+                    namespace,
+                    def_namespace,
+                    children,
+                    parent,
+                ),
             }
         }
     }
+}
+
+fn generate_add(
+    instructions: &mut Vec<Instruction>,
+    id_map: &mut IdMap,
+    namespace: &Namespace,
+    def_namespace: &Namespace,
+    children: &[Expr],
+) -> Option<Data> {
+    let child1 = children.get(0).unwrap();
+    let child2 = children.get(1).unwrap();
+
+    let arg1 = generate_expr(&child1, instructions, id_map, namespace, def_namespace).unwrap();
+    let arg2 = generate_expr(&child2, instructions, id_map, namespace, def_namespace).unwrap();
+
+    let out = id_map.add();
+
+    let typ = Terminal::I32;
+
+    let instruction = Instruction::Add(Add {
+        out,
+        typ,
+        arg1,
+        arg2,
+    });
+    instructions.push(instruction);
+
+    Some(Data::Id(out))
+}
+
+fn generate_mul(
+    instructions: &mut Vec<Instruction>,
+    id_map: &mut IdMap,
+    namespace: &Namespace,
+    def_namespace: &Namespace,
+    children: &[Expr],
+) -> Option<Data> {
+    let child1 = children.get(0).unwrap();
+    let child2 = children.get(1).unwrap();
+
+    let arg1 = generate_expr(&child1, instructions, id_map, namespace, def_namespace).unwrap();
+    let arg2 = generate_expr(&child2, instructions, id_map, namespace, def_namespace).unwrap();
+
+    let out = id_map.add();
+
+    let typ = Terminal::F32;
+
+    let instruction = Instruction::Mul(Mul {
+        out,
+        typ,
+        arg1,
+        arg2,
+    });
+    instructions.push(instruction);
+
+    Some(Data::Id(out))
+}
+
+fn generate_not(
+    instructions: &mut Vec<Instruction>,
+    id_map: &mut IdMap,
+    namespace: &Namespace,
+    def_namespace: &Namespace,
+    children: &[Expr],
+) -> Option<Data> {
+    let child = children.get(0).unwrap();
+
+    let arg = generate_expr(&child, instructions, id_map, namespace, def_namespace).unwrap();
+
+    let out = id_map.add();
+
+    let instruction = Instruction::Not(Not { out, arg });
+    instructions.push(instruction);
+
+    Some(Data::Id(out))
+}
+
+fn generate_call(
+    instructions: &mut Vec<Instruction>,
+    id_map: &mut IdMap,
+    namespace: &Namespace,
+    def_namespace: &Namespace,
+    children: &[Expr],
+    parent: &String,
+) -> Option<Data> {
+    let (params, ret) =
+        if let Some(Symbol::Var(Type::Func(Func { params, ret }))) = namespace.get(parent) {
+            (params, ret)
+        } else {
+            panic!()
+        };
+
+    let mut args = Vec::new();
+    for (typ, child) in params.iter().zip(children.iter()) {
+        let data = generate_expr(&child, instructions, id_map, namespace, def_namespace).unwrap();
+        let arg = Arg { typ: *typ, data };
+        args.push(arg);
+    }
+
+    let call_id = parent.clone();
+
+    let out = id_map.add();
+
+    let instruction = Instruction::Call(Call {
+        out: Some(out),
+        typ: *ret,
+        call_id,
+        args,
+    });
+    instructions.push(instruction);
+
+    Some(Data::Id(out))
 }
