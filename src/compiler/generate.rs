@@ -211,7 +211,7 @@ fn generate_expr(
                 return None;
             };
 
-            match parent.as_str() {
+            let id = match parent.as_str() {
                 "+" => generate_add(instructions, id_map, namespace, def_namespace, children),
                 "*" => generate_mul(instructions, id_map, namespace, def_namespace, children),
                 "!" => generate_not(instructions, id_map, namespace, def_namespace, children),
@@ -223,7 +223,9 @@ fn generate_expr(
                     children,
                     parent,
                 ),
-            }
+            };
+
+            Some(Data::Id(id))
         }
     }
 }
@@ -234,7 +236,7 @@ fn generate_add(
     namespace: &Namespace,
     def_namespace: &Namespace,
     children: &[Expr],
-) -> Option<Data> {
+) -> Id {
     let child1 = children.get(0).unwrap();
     let child2 = children.get(1).unwrap();
 
@@ -253,7 +255,7 @@ fn generate_add(
     });
     instructions.push(instruction);
 
-    Some(Data::Id(out))
+    out
 }
 
 fn generate_mul(
@@ -262,7 +264,7 @@ fn generate_mul(
     namespace: &Namespace,
     def_namespace: &Namespace,
     children: &[Expr],
-) -> Option<Data> {
+) -> Id {
     let child1 = children.get(0).unwrap();
     let child2 = children.get(1).unwrap();
 
@@ -281,7 +283,7 @@ fn generate_mul(
     });
     instructions.push(instruction);
 
-    Some(Data::Id(out))
+    out
 }
 
 fn generate_not(
@@ -290,7 +292,7 @@ fn generate_not(
     namespace: &Namespace,
     def_namespace: &Namespace,
     children: &[Expr],
-) -> Option<Data> {
+) -> Id {
     let child = children.get(0).unwrap();
 
     let arg = generate_expr(&child, instructions, id_map, namespace, def_namespace).unwrap();
@@ -300,7 +302,7 @@ fn generate_not(
     let instruction = Instruction::Not(Not { out, arg });
     instructions.push(instruction);
 
-    Some(Data::Id(out))
+    out
 }
 
 fn generate_call(
@@ -310,7 +312,7 @@ fn generate_call(
     def_namespace: &Namespace,
     children: &[Expr],
     parent: &String,
-) -> Option<Data> {
+) -> Id {
     let (params, ret) =
         if let Some(Symbol::Var(Type::Func(Func { params, ret }))) = namespace.get(parent) {
             (params, ret)
@@ -337,5 +339,5 @@ fn generate_call(
     });
     instructions.push(instruction);
 
-    Some(Data::Id(out))
+    out
 }
