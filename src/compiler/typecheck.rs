@@ -3,11 +3,14 @@ use super::error::Error;
 use super::namespace::Namespace;
 use super::parse::Expr;
 use super::parse::Program;
+use super::symbol::Func;
 use super::symbol::Symbol;
 use super::symbol::Terminal;
 use super::symbol::Type;
 
 pub fn typecheck(program: Program, namespace: Namespace) -> Result<(Program, Namespace), Error> {
+    typecheck_main(&namespace)?;
+
     for def in &program.defs {
         let def_namespace = &namespace.get_namespace(&def.name.0).unwrap();
         if let Some(Symbol::Type(Type::Terminal(ret))) = namespace.get(&def.func.ret.0) {
@@ -17,6 +20,30 @@ pub fn typecheck(program: Program, namespace: Namespace) -> Result<(Program, Nam
         }
     }
     Ok((program, namespace))
+}
+
+fn typecheck_main(namespace: &Namespace) -> Result<(), Error> {
+    let symbol = if let Some(symbol) = namespace.get("main") {
+        symbol
+    } else {
+        return err!(expected_main);
+    };
+
+    let main1 = Symbol::Var(Type::Func(Func {
+        params: vec![Terminal::I32],
+        ret: Terminal::I32,
+    }));
+
+    let main2 = Symbol::Var(Type::Func(Func {
+        params: vec![],
+        ret: Terminal::I32,
+    }));
+
+    if *symbol == main1 || *symbol == main2 {
+        Ok(())
+    } else {
+        err!(expected_main_type)
+    }
 }
 
 fn typecheck_expr(

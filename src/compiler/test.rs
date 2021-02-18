@@ -23,10 +23,13 @@ macro_rules! err {
 #[test]
 fn test() {
     ok!(
-        "(main (void) ())",
+        "(f (void) ()) (main (i32) 0)",
         "\
-define void @main() {
+define void @f() {
 ret void
+}
+define i32 @main() {
+ret i32 0
 }
 "
     );
@@ -50,10 +53,13 @@ ret i32 %0
     );
 
     ok!(
-        "(main ((x i32) (y i32) i32) y)",
+        "(f ((x i32) (y i32) i32) y) (main (i32) 0)",
         "\
-define i32 @main(i32 %0, i32 %1) {
+define i32 @f(i32 %0, i32 %1) {
 ret i32 %1
+}
+define i32 @main() {
+ret i32 0
 }
 "
     );
@@ -69,11 +75,14 @@ ret i32 %1
     );
 
     ok!(
-        "(main ((x i32) (y i32) i32) (+ x y))",
+        "(f ((x i32) (y i32) i32) (+ x y)) (main (i32) 0)",
         "\
-define i32 @main(i32 %0, i32 %1) {
+define i32 @f(i32 %0, i32 %1) {
 %3 = add i32 %0, %1
 ret i32 %3
+}
+define i32 @main() {
+ret i32 0
 }
 "
     );
@@ -149,4 +158,10 @@ ret i32 %2
         "(f ((x i32) (y i32) i32) 1) (main (i32) (f 1))",
         "expected_argument"
     );
+
+    err!("(f (i32) 0)", "expected_main");
+
+    err!("(main (void) 0)", "expected_main_type");
+
+    err!("(main ((x i32) void) ())", "expected_main_type");
 }

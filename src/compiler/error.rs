@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub struct Error {
     name: &'static str,
-    location: usize,
+    location: Option<usize>,
     message: String,
     compiler_file: &'static str,
     compiler_line: u32,
@@ -11,7 +11,7 @@ pub struct Error {
 impl Error {
     pub fn new(
         name: &'static str,
-        location: usize,
+        location: Option<usize>,
         message: String,
         compiler_file: &'static str,
         compiler_line: u32,
@@ -33,6 +33,16 @@ impl Error {
     }
 
     pub fn print(&self, text: &str) {
+        let location = if let Some(location) = self.location {
+            location
+        } else {
+            eprint!(
+                "Error: {}\n{}:{}:{}\n",
+                self.message, self.compiler_file, self.compiler_line, self.compiler_column,
+            );
+            return;
+        };
+
         enum State {
             Looking,
             Found,
@@ -43,7 +53,7 @@ impl Error {
 
         for (loc, ch) in text.char_indices() {
             if let State::Looking = state {
-                if loc == self.location {
+                if loc == location {
                     state = State::Found;
                     column = line.len();
                 }
@@ -84,16 +94,29 @@ macro_rules! error {
     () => {
         error_impl!(unimplemented)
     };
+    ($name:tt) => {
+        error_impl!($name, $name)
+    };
     ($name:tt, $($args:tt)*) => {
         error_impl!($name, $name, $($args)*)
     };
 }
 
 macro_rules! error_new {
+    ($name:tt, $message:expr) => {
+        Error::new(
+            stringify!($name),
+            None,
+            $message,
+            file!(),
+            line!(),
+            column!(),
+        )
+    };
     ($name:tt, $location:expr, $message:expr) => {
         Error::new(
             stringify!($name),
-            $location,
+            Some($location),
             $message,
             file!(),
             line!(),
@@ -189,5 +212,13 @@ macro_rules! error_impl {
 
     (unexpected_argument, $name:tt, $location:expr) => {
         error_new!($name, $location, format!("Unexpected extra argument in function call."))
+    };
+
+    (expected_main, $name:tt) => {
+        error_new!($name, format!("Expected `main` function to be defined."))
+    };
+
+    (expected_main_type, $name:tt) => {
+        error_new!($name, format!("Expected `main` to have type `(i32)` or `(i32 i32)`."))
     };
 }
