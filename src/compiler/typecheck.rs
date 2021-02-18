@@ -64,43 +64,51 @@ fn typecheck_exprs(
     namespace: &Namespace,
     def_namespace: &Namespace,
 ) -> Result<(), Error> {
-    if let Some(expr) = exprs.first() {
-        if let Expr::Val((token, location)) = expr {
-            if let Some(symbol) = def_namespace.get(&token).or_else(|| namespace.get(&token)) {
-                if let Symbol::Var(Type::Func(func)) = symbol {
-                    if func.ret != ret {
-                        return err!("func type mismatch", *location, ret, func.ret);
-                    }
-
-                    let mut params = func.params.iter();
-                    let mut args = exprs.iter().skip(1);
-                    loop {
-                        match (params.next(), args.next()) {
-                            (None, None) => return Ok(()),
-                            (None, Some(arg)) => match arg {
-                                Expr::Val((_, location)) | Expr::Expr((_, location)) => {
-                                    return err!("unexpected argument", *location);
-                                }
-                            },
-                            (Some(_), None) => return err!("expected argument", *location),
-                            (Some(param), Some(arg)) => {
-                                typecheck_expr(arg, *param, namespace, def_namespace)?;
-                            }
-                        }
-                    }
-                } else {
-                    err!("expected func", *location)
-                }
-            } else {
-                err!("expected defined symbol", *location, token)
-            }
-        } else {
-            err!("expected func", location)
-        }
+    let expr = if let Some(expr) = exprs.first() {
+        expr
     } else {
         if ret != Terminal::Void {
             return err!("type mismatch", location, ret, Terminal::Void);
         }
-        Ok(())
+        return Ok(());
+    };
+
+    let (token, location) = if let Expr::Val(val) = expr {
+        val
+    } else {
+        return err!("expected func", location);
+    };
+
+    let symbol = if let Some(symbol) = def_namespace.get(&token).or_else(|| namespace.get(&token)) {
+        symbol
+    } else {
+        return err!("expected defined symbol", *location, token);
+    };
+
+    let func = if let Symbol::Var(Type::Func(func)) = symbol {
+        func
+    } else {
+        return err!("expected func", *location);
+    };
+
+    if func.ret != ret {
+        return err!("func type mismatch", *location, ret, func.ret);
+    }
+
+    let mut params = func.params.iter();
+    let mut args = exprs.iter().skip(1);
+    loop {
+        match (params.next(), args.next()) {
+            (None, None) => return Ok(()),
+            (None, Some(arg)) => match arg {
+                Expr::Val((_, location)) | Expr::Expr((_, location)) => {
+                    return err!("unexpected argument", *location);
+                }
+            },
+            (Some(_), None) => return err!("expected argument", *location),
+            (Some(param), Some(arg)) => {
+                typecheck_expr(arg, *param, namespace, def_namespace)?;
+            }
+        }
     }
 }
