@@ -58,6 +58,27 @@ impl Namespace {
         self.namespace.get(key)
     }
 
+    pub fn get_or<'a>(
+        &'a self,
+        other: &'a Namespace,
+        key: &str,
+    ) -> Option<&'a Vec<(Symbol, Namespace)>> {
+        self.get(key).or_else(|| other.get(key))
+    }
+
+    pub fn get_then<'a>(&'a self, key: &str, id: Id) -> Option<&'a (Symbol, Namespace)> {
+        self.get(key).and_then(|symbols| symbols.get(id))
+    }
+
+    pub fn get_or_then<'a>(
+        &'a self,
+        other: &'a Namespace,
+        key: &str,
+        id: Id,
+    ) -> Option<&'a (Symbol, Namespace)> {
+        self.get_or(other, key).and_then(|symbols| symbols.get(id))
+    }
+
     pub fn insert(&mut self, key: String, val: Symbol) {
         self.namespace.insert(key, vec![(val, Namespace::new())]);
     }

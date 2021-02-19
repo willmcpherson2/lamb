@@ -125,12 +125,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
 
     for def in &program.defs {
         let def_id = def.name.0.clone();
-        let def_namespace = &namespace
-            .get(&def.name.0)
-            .unwrap()
-            .get(def.name.2)
-            .unwrap()
-            .1;
+        let def_namespace = &namespace.get_then(&def.name.0, def.name.2).unwrap().1;
 
         let mut params = Vec::new();
         for param in &def.func.params {
@@ -178,7 +173,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
 }
 
 fn get_terminal(typ: &str, namespace: &Namespace) -> Terminal {
-    if let Symbol::Type(Type::Terminal(terminal)) = namespace.get(typ).unwrap().get(0).unwrap().0 {
+    if let Symbol::Type(Type::Terminal(terminal)) = namespace.get_then(typ, 0).unwrap().0 {
         terminal
     } else {
         panic!()
@@ -194,13 +189,7 @@ fn generate_expr(
 ) -> Option<Data> {
     match expr {
         Expr::Val((token, _, _)) => {
-            let symbol = &def_namespace
-                .get(&token)
-                .or_else(|| namespace.get(&token))
-                .unwrap()
-                .get(0)
-                .unwrap()
-                .0;
+            let symbol = &def_namespace.get_or_then(namespace, &token, 0).unwrap().0;
 
             match symbol {
                 Symbol::Var(_) => Some(Data::Id(id_map.get(&token))),
@@ -325,7 +314,7 @@ fn generate_call(
     parent_id: Id,
 ) -> Id {
     let (params, ret) = if let Symbol::Var(Type::Func(Func { params, ret })) =
-        &namespace.get(parent).unwrap().get(parent_id).unwrap().0
+        &namespace.get_then(parent, parent_id).unwrap().0
     {
         (params, ret)
     } else {

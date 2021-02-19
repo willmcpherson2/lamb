@@ -15,15 +15,9 @@ pub fn typecheck(
     typecheck_main(&namespace)?;
 
     for def in &mut program.defs {
-        let def_namespace = &namespace
-            .get(&def.name.0)
-            .unwrap()
-            .get(def.name.2)
-            .unwrap()
-            .1;
+        let def_namespace = &namespace.get_then(&def.name.0, def.name.2).unwrap().1;
 
-        if let Symbol::Type(Type::Terminal(ret)) =
-            namespace.get(&def.func.ret.0).unwrap().get(0).unwrap().0
+        if let Symbol::Type(Type::Terminal(ret)) = namespace.get_then(&def.func.ret.0, 0).unwrap().0
         {
             typecheck_expr(&mut def.expr, ret, &namespace, def_namespace)?;
         } else {
@@ -86,7 +80,7 @@ fn typecheck_val(
     namespace: &Namespace,
     def_namespace: &Namespace,
 ) -> Result<(), Error> {
-    if let Some(symbols) = def_namespace.get(token).or_else(|| namespace.get(token)) {
+    if let Some(symbols) = def_namespace.get_or(&namespace, token) {
         let symbol = &symbols.get(0).unwrap().0;
 
         let terminal = match symbol {
@@ -125,8 +119,7 @@ fn typecheck_exprs(
         return err!(expected_func, location);
     };
 
-    let symbols = if let Some(symbols) = def_namespace.get(&token).or_else(|| namespace.get(&token))
-    {
+    let symbols = if let Some(symbols) = def_namespace.get_or(&namespace, &token) {
         symbols
     } else {
         return err!(expected_defined_symbol, location, token);
