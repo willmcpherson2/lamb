@@ -221,4 +221,12 @@ macro_rules! error_impl {
     (expected_main_type, $name:tt) => {
         error_new!($name, format!("Expected `main` to have type `(i32)` or `(i32 i32)`."))
     };
+
+    (unexpected_multi_main, $name:tt) => {
+        error_new!($name, format!("Multiple definitions of function `main`."))
+    };
+
+    (no_type_match, $name:tt, $location:expr) => {
+        error_new!($name, $location, format!("Functions with this name exist, but none are appropriate in this context."))
+    };
 }

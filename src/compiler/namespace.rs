@@ -1,3 +1,4 @@
+use super::common::Id;
 use super::symbol::Func;
 use super::symbol::Symbol;
 use super::symbol::Terminal;
@@ -6,7 +7,7 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Namespace {
-    namespace: HashMap<String, (Symbol, Namespace)>,
+    namespace: HashMap<String, Vec<(Symbol, Namespace)>>,
 }
 
 impl Namespace {
@@ -47,25 +48,28 @@ impl Namespace {
 
         let mut namespace = HashMap::new();
         for (key, val) in builtins.into_iter() {
-            namespace.insert(key.to_string(), (val, Namespace::new()));
+            namespace.insert(key.to_string(), vec![(val, Namespace::new())]);
         }
 
         Namespace { namespace }
     }
 
-    pub fn get(&self, key: &str) -> Option<&Symbol> {
-        self.namespace.get(key).map(|(symbol, _)| symbol)
-    }
-
-    pub fn get_namespace(&self, key: &str) -> Option<&Namespace> {
-        self.namespace.get(key).map(|(_, namespace)| namespace)
+    pub fn get(&self, key: &str) -> Option<&Vec<(Symbol, Namespace)>> {
+        self.namespace.get(key)
     }
 
     pub fn insert(&mut self, key: String, val: Symbol) {
-        self.namespace.insert(key, (val, Namespace::new()));
+        self.namespace.insert(key, vec![(val, Namespace::new())]);
     }
 
-    pub fn insert_with_namespace(&mut self, key: String, val: Symbol, namespace: Namespace) {
-        self.namespace.insert(key, (val, namespace));
+    pub fn insert_with_namespace(&mut self, key: String, val: Symbol, namespace: Namespace) -> Id {
+        if let Some(symbols) = self.namespace.get_mut(&key) {
+            let id = symbols.len();
+            symbols.push((val, namespace));
+            id
+        } else {
+            self.namespace.insert(key, vec![(val, namespace)]);
+            0
+        }
     }
 }

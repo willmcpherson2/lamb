@@ -1,3 +1,4 @@
+use super::common::Id;
 use super::generate::Arg;
 use super::generate::Data;
 use super::generate::Def;
@@ -17,9 +18,10 @@ pub fn emit(target: Target) -> String {
 
 fn emit_def(def: &Def) -> String {
     format!(
-        "define {} @{}({}) {{\n{}}}\n",
+        "define {} @{}{}({}) {{\n{}}}\n",
         def.ret,
-        def.id,
+        def.id.0,
+        emit_id(def.id.1),
         emit_params(&def.params),
         emit_instructions(&def.instructions)
     )
@@ -67,17 +69,19 @@ fn emit_instruction(instruction: &Instruction) -> String {
         Instruction::Call(call) => {
             if let Some(out) = &call.out {
                 format!(
-                    "%{} = call {} @{}({})\n",
+                    "%{} = call {} @{}{}({})\n",
                     out,
                     call.typ,
-                    call.call_id,
+                    call.call_id.0,
+                    emit_id(call.call_id.1),
                     emit_args(&call.args)
                 )
             } else {
                 format!(
-                    "call {} @{}({})\n",
+                    "call {} @{}{}({})\n",
                     call.typ,
-                    call.call_id,
+                    call.call_id.0,
+                    emit_id(call.call_id.1),
                     emit_args(&call.args)
                 )
             }
@@ -97,6 +101,14 @@ fn emit_instruction(instruction: &Instruction) -> String {
         Instruction::Not(not) => {
             format!("%{} = xor i1 {}, true\n", not.out, not.arg)
         }
+    }
+}
+
+fn emit_id(id: Id) -> String {
+    if id == 0 {
+        String::new()
+    } else {
+        format!("{}", id)
     }
 }
 

@@ -1,3 +1,3 @@
 pub type Location = usize;
 
-pub type Id = u64;
+pub type Id = usize;

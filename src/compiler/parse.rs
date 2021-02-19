@@ -1,3 +1,4 @@
+use super::common::Id;
 use super::common::Location;
 use super::error::Error;
 use super::namespace::Namespace;
@@ -10,7 +11,7 @@ pub struct Program {
 
 #[derive(Debug)]
 pub struct Def {
-    pub name: (String, Location),
+    pub name: (String, Location, Id),
     pub func: Func,
     pub expr: Expr,
     pub location: Location,
@@ -32,7 +33,7 @@ pub struct Param {
 
 #[derive(Debug)]
 pub enum Expr {
-    Val((String, Location)),
+    Val((String, Location, Id)),
     Expr((Vec<Expr>, Location)),
 }
 
@@ -71,7 +72,7 @@ fn parse_def(token_tree: &TokenTree) -> Result<Def, Error> {
             }
 
             Ok(Def {
-                name: (name, name_location),
+                name: (name, name_location, 0),
                 func,
                 expr,
                 location: *location,
@@ -176,6 +177,6 @@ fn parse_expr(token_tree: &TokenTree) -> Expr {
             }
             Expr::Expr((exprs, *location))
         }
-        TokenTree::Token((token, location)) => Expr::Val((token.clone(), *location)),
+        TokenTree::Token((token, location)) => Expr::Val((token.clone(), *location, 0)),
     }
 }

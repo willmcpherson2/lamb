@@ -100,6 +100,38 @@ ret i32 %2
 "
     );
 
+    ok!(
+        "(f ((x i32) i32) x) (f (i32) 0) (main (i32) (f))",
+        "\
+define i32 @f(i32 %0) {
+ret i32 %0
+}
+define i32 @f1() {
+ret i32 0
+}
+define i32 @main() {
+%1 = call i32 @f1()
+ret i32 %1
+}
+"
+    );
+
+    ok!(
+        "(f (i32) 0) (f (i32) 1) (main (i32) (f))",
+        "\
+define i32 @f() {
+ret i32 0
+}
+define i32 @f1() {
+ret i32 1
+}
+define i32 @main() {
+%1 = call i32 @f1()
+ret i32 %1
+}
+"
+    );
+
     err!("a", "expected_def");
 
     err!("(main (void) () ()) ((x i32", "unexpected_token");
@@ -164,4 +196,19 @@ ret i32 %2
     err!("(main (void) 0)", "expected_main_type");
 
     err!("(main ((x i32) void) ())", "expected_main_type");
+
+    err!(
+        "(f (i32) 0) (f (i32) 1) (main (i32) (f 1))",
+        "no_type_match"
+    );
+
+    err!(
+        "(f (f32) 0.0) (f (f32) 1.0) (main (i32) (f))",
+        "no_type_match"
+    );
+
+    err!(
+        "(f ((x i32) i32) 0) (f (i32) 1) (main (i32) (f 1 2))",
+        "no_type_match"
+    );
 }

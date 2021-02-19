@@ -16,7 +16,7 @@ pub struct Target {
 #[derive(Debug)]
 pub struct Def {
     pub ret: Terminal,
-    pub id: String,
+    pub id: (String, Id),
     pub params: Vec<Param>,
     pub instructions: Vec<Instruction>,
 }
@@ -58,7 +58,7 @@ pub struct Ret {
 pub struct Call {
     pub out: Option<Id>,
     pub typ: Terminal,
-    pub call_id: String,
+    pub call_id: (String, Id),
     pub args: Vec<Arg>,
 }
 
@@ -125,7 +125,12 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
 
     for def in &program.defs {
         let def_id = def.name.0.clone();
-        let def_namespace = &namespace.get_namespace(&def.name.0).unwrap();
+        let def_namespace = &namespace
+            .get(&def.name.0)
+            .unwrap()
+            .get(def.name.2)
+            .unwrap()
+            .1;
 
         let mut params = Vec::new();
         for param in &def.func.params {
@@ -159,7 +164,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
         instructions.push(ret_instruction);
 
         let def = Def {
-            id: def_id,
+            id: (def_id, def.name.2),
             params,
             instructions,
             ret,
@@ -173,8 +178,8 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
 }
 
 fn get_terminal(typ: &str, namespace: &Namespace) -> Terminal {
-    if let Some(Symbol::Type(Type::Terminal(terminal))) = namespace.get(typ) {
-        *terminal
+    if let Symbol::Type(Type::Terminal(terminal)) = namespace.get(typ).unwrap().get(0).unwrap().0 {
+        terminal
     } else {
         panic!()
     }
@@ -188,11 +193,14 @@ fn generate_expr(
     def_namespace: &Namespace,
 ) -> Option<Data> {
     match expr {
-        Expr::Val((token, _)) => {
-            let symbol = def_namespace
+        Expr::Val((token, _, _)) => {
+            let symbol = &def_namespace
                 .get(&token)
                 .or_else(|| namespace.get(&token))
-                .unwrap();
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .0;
 
             match symbol {
                 Symbol::Var(_) => Some(Data::Id(id_map.get(&token))),
@@ -201,15 +209,16 @@ fn generate_expr(
             }
         }
         Expr::Expr((exprs, _)) => {
-            let (parent, children) = if let Some((parent, children)) = exprs.split_first() {
-                if let Expr::Val((parent, _)) = parent {
-                    (parent, children)
+            let (parent, parent_id, children) =
+                if let Some((parent, children)) = exprs.split_first() {
+                    if let Expr::Val((parent, _, parent_id)) = parent {
+                        (parent, *parent_id, children)
+                    } else {
+                        panic!()
+                    }
                 } else {
-                    panic!()
-                }
-            } else {
-                return None;
-            };
+                    return None;
+                };
 
             let id = match parent.as_str() {
                 "+" => generate_add(instructions, id_map, namespace, def_namespace, children),
@@ -222,6 +231,7 @@ fn generate_expr(
                     def_namespace,
                     children,
                     parent,
+                    parent_id,
                 ),
             };
 
@@ -312,13 +322,15 @@ fn generate_call(
     def_namespace: &Namespace,
     children: &[Expr],
     parent: &str,
+    parent_id: Id,
 ) -> Id {
-    let (params, ret) =
-        if let Some(Symbol::Var(Type::Func(Func { params, ret }))) = namespace.get(parent) {
-            (params, ret)
-        } else {
-            panic!()
-        };
+    let (params, ret) = if let Symbol::Var(Type::Func(Func { params, ret })) =
+        &namespace.get(parent).unwrap().get(parent_id).unwrap().0
+    {
+        (params, ret)
+    } else {
+        panic!()
+    };
 
     let mut args = Vec::new();
     for (typ, child) in params.iter().zip(children.iter()) {
@@ -334,7 +346,7 @@ fn generate_call(
     let instruction = Instruction::Call(Call {
         out: Some(out),
         typ: *ret,
-        call_id,
+        call_id: (call_id, parent_id),
         args,
     });
     instructions.push(instruction);

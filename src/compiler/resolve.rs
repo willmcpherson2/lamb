@@ -7,8 +7,11 @@ use super::symbol::Symbol;
 use super::symbol::Terminal;
 use super::symbol::Type;
 
-pub fn resolve(program: Program, mut namespace: Namespace) -> Result<(Program, Namespace), Error> {
-    for def in &program.defs {
+pub fn resolve(
+    mut program: Program,
+    mut namespace: Namespace,
+) -> Result<(Program, Namespace), Error> {
+    for def in &mut program.defs {
         let name = def.name.0.clone();
         let mut def_namespace = Namespace::new();
 
@@ -26,20 +29,23 @@ pub fn resolve(program: Program, mut namespace: Namespace) -> Result<(Program, N
         let ret = get_terminal(&def.func.ret.0, def.func.ret.1, &namespace)?;
 
         let symbol = Symbol::Var(Type::Func(Func { params, ret }));
-        namespace.insert_with_namespace(name, symbol, def_namespace);
+        let id = namespace.insert_with_namespace(name, symbol, def_namespace);
+        def.name.2 = id;
     }
 
     Ok((program, namespace))
 }
 
 fn get_terminal(typ: &str, location: Location, namespace: &Namespace) -> Result<Terminal, Error> {
-    if let Some(symbol) = namespace.get(typ) {
-        if let Symbol::Type(Type::Terminal(terminal)) = symbol {
-            Ok(*terminal)
-        } else {
-            err!(expected_terminal_type, location)
-        }
+    let symbols = if let Some(symbols) = namespace.get(typ) {
+        symbols
     } else {
-        err!(expected_defined_type, location, typ)
+        return err!(expected_defined_type, location, typ);
+    };
+
+    if let Some(Symbol::Type(Type::Terminal(terminal))) = &symbols.get(0).map(|symbol| &symbol.0) {
+        Ok(*terminal)
+    } else {
+        err!(expected_terminal_type, location)
     }
 }
