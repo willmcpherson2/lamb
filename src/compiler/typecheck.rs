@@ -1,7 +1,9 @@
 use super::common::Location;
 use super::error::Error;
 use super::namespace::Namespace;
+use super::parse::Call;
 use super::parse::Expr;
+use super::parse::IdName;
 use super::parse::Program;
 use super::symbol::Func;
 use super::symbol::Symbol;
@@ -15,9 +17,10 @@ pub fn typecheck(
     typecheck_main(&namespace)?;
 
     for def in &mut program.defs {
-        let def_namespace = &namespace.get_then(&def.name.0, def.name.2).unwrap().1;
+        let def_namespace = &namespace.get_then(&def.name.name, def.name.id).unwrap().1;
 
-        if let Symbol::Type(Type::Terminal(ret)) = namespace.get_then(&def.func.ret.0, 0).unwrap().0
+        if let Symbol::Type(Type::Terminal(ret)) =
+            namespace.get_then(&def.func.ret.name, 0).unwrap().0
         {
             typecheck_expr(&mut def.expr, ret, &namespace, def_namespace)?;
         } else {
@@ -64,10 +67,10 @@ fn typecheck_expr(
     def_namespace: &Namespace,
 ) -> Result<(), Error> {
     match expr {
-        Expr::Val((token, location, _)) => {
-            typecheck_val(token, *location, ret, namespace, def_namespace)
+        Expr::Val(IdName { name, location, .. }) => {
+            typecheck_val(name, *location, ret, namespace, def_namespace)
         }
-        Expr::Expr((ref mut exprs, location)) => {
+        Expr::Call(Call { exprs, location }) => {
             typecheck_exprs(exprs, *location, ret, namespace, def_namespace)
         }
     }
@@ -113,16 +116,16 @@ fn typecheck_exprs(
         return Ok(());
     };
 
-    let (token, location) = if let Expr::Val((token, location, _)) = expr {
-        (token, *location)
+    let (name, location) = if let Expr::Val(IdName { name, location, .. }) = expr {
+        (name, *location)
     } else {
         return err!(expected_func, location);
     };
 
-    let symbols = if let Some(symbols) = def_namespace.get_or(&namespace, &token) {
+    let symbols = if let Some(symbols) = def_namespace.get_or(&namespace, &name) {
         symbols
     } else {
-        return err!(expected_defined_symbol, location, token);
+        return err!(expected_defined_symbol, location, name);
     };
 
     if symbols.len() == 1 {
@@ -150,7 +153,7 @@ fn typecheck_exprs(
         return err!(no_type_match, location);
     };
 
-    if let Expr::Val((_, _, id)) = exprs.first_mut().unwrap() {
+    if let Expr::Val(IdName { id, .. }) = exprs.first_mut().unwrap() {
         *id = new_id;
         Ok(())
     } else {
@@ -182,7 +185,7 @@ fn typecheck_call(
         match (params.next(), args.next()) {
             (None, None) => return Ok(()),
             (None, Some(arg)) => match arg {
-                Expr::Val((_, location, _)) | Expr::Expr((_, location)) => {
+                Expr::Val(IdName { location, .. }) | Expr::Call(Call { location, .. }) => {
                     return err!(unexpected_argument, *location);
                 }
             },

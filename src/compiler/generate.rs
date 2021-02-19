@@ -1,6 +1,8 @@
 use super::common::Id;
 use super::namespace::Namespace;
+use super::parse;
 use super::parse::Expr;
+use super::parse::IdName;
 use super::parse::Program;
 use super::symbol::Func;
 use super::symbol::Symbol;
@@ -124,14 +126,14 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
     let mut id_map = IdMap::new();
 
     for def in &program.defs {
-        let def_id = def.name.0.clone();
-        let def_namespace = &namespace.get_then(&def.name.0, def.name.2).unwrap().1;
+        let def_id = def.name.name.clone();
+        let def_namespace = &namespace.get_then(&def.name.name, def.name.id).unwrap().1;
 
         let mut params = Vec::new();
         for param in &def.func.params {
-            let param_id = id_map.insert(param.name.0.clone());
+            let param_id = id_map.insert(param.name.name.clone());
 
-            let param_type = get_terminal(&param.typ.0, &namespace);
+            let param_type = get_terminal(&param.typ.name, &namespace);
 
             let param = Param {
                 typ: param_type,
@@ -140,7 +142,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
             params.push(param);
         }
 
-        let ret = get_terminal(&def.func.ret.0, &namespace);
+        let ret = get_terminal(&def.func.ret.name, &namespace);
 
         id_map.add();
 
@@ -159,7 +161,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
         instructions.push(ret_instruction);
 
         let def = Def {
-            id: (def_id, def.name.2),
+            id: (def_id, def.name.id),
             params,
             instructions,
             ret,
@@ -188,20 +190,20 @@ fn generate_expr(
     def_namespace: &Namespace,
 ) -> Option<Data> {
     match expr {
-        Expr::Val((token, _, _)) => {
-            let symbol = &def_namespace.get_or_then(namespace, &token, 0).unwrap().0;
+        Expr::Val(IdName { name, .. }) => {
+            let symbol = &def_namespace.get_or_then(namespace, &name, 0).unwrap().0;
 
             match symbol {
-                Symbol::Var(_) => Some(Data::Id(id_map.get(&token))),
-                Symbol::Literal(_) => Some(Data::Literal(token.clone())),
+                Symbol::Var(_) => Some(Data::Id(id_map.get(&name))),
+                Symbol::Literal(_) => Some(Data::Literal(name.clone())),
                 _ => panic!(),
             }
         }
-        Expr::Expr((exprs, _)) => {
+        Expr::Call(parse::Call { exprs, .. }) => {
             let (parent, parent_id, children) =
                 if let Some((parent, children)) = exprs.split_first() {
-                    if let Expr::Val((parent, _, parent_id)) = parent {
-                        (parent, *parent_id, children)
+                    if let Expr::Val(IdName { name, id, .. }) = parent {
+                        (name, *id, children)
                     } else {
                         panic!()
                     }

@@ -11,7 +11,7 @@ pub struct Program {
 
 #[derive(Debug)]
 pub struct Def {
-    pub name: (String, Location, Id),
+    pub name: IdName,
     pub func: Func,
     pub expr: Expr,
     pub location: Location,
@@ -20,21 +20,40 @@ pub struct Def {
 #[derive(Debug)]
 pub struct Func {
     pub params: Vec<Param>,
-    pub ret: (String, Location),
+    pub ret: Name,
     pub location: Location,
 }
 
 #[derive(Debug)]
 pub struct Param {
-    pub name: (String, Location),
-    pub typ: (String, Location),
+    pub name: Name,
+    pub typ: Name,
     pub location: Location,
 }
 
 #[derive(Debug)]
 pub enum Expr {
-    Val((String, Location, Id)),
-    Expr((Vec<Expr>, Location)),
+    Val(IdName),
+    Call(Call),
+}
+
+#[derive(Debug)]
+pub struct Call {
+    pub exprs: Vec<Expr>,
+    pub location: Location,
+}
+
+#[derive(Debug)]
+pub struct Name {
+    pub name: String,
+    pub location: Location,
+}
+
+#[derive(Debug)]
+pub struct IdName {
+    pub name: String,
+    pub id: Id,
+    pub location: Location,
 }
 
 pub fn parse(token_tree: TokenTree, namespace: Namespace) -> Result<(Program, Namespace), Error> {
@@ -72,7 +91,11 @@ fn parse_def(token_tree: &TokenTree) -> Result<Def, Error> {
             }
 
             Ok(Def {
-                name: (name, name_location, 0),
+                name: IdName {
+                    name,
+                    id: 0,
+                    location: name_location,
+                },
                 func,
                 expr,
                 location: *location,
@@ -130,7 +153,10 @@ fn parse_func(tree: &[TokenTree], location: Location) -> Result<Func, Error> {
 
     Ok(Func {
         params: func_params,
-        ret: (token.clone(), *ret_location),
+        ret: Name {
+            name: token.clone(),
+            location: *ret_location,
+        },
         location,
     })
 }
@@ -151,14 +177,20 @@ fn parse_param(token_tree: &TokenTree) -> Result<Param, Error> {
         TokenTree::Tree((_, location)) => {
             return err!(expected_param_name, *location);
         }
-        TokenTree::Token((token, location)) => (token.clone(), *location),
+        TokenTree::Token((token, location)) => Name {
+            name: token.clone(),
+            location: *location,
+        },
     };
 
     let typ = match typ {
         TokenTree::Tree((_, location)) => {
             return err!(expected_param_type, *location);
         }
-        TokenTree::Token((token, location)) => (token.clone(), *location),
+        TokenTree::Token((token, location)) => Name {
+            name: token.clone(),
+            location: *location,
+        },
     };
 
     Ok(Param {
@@ -175,8 +207,15 @@ fn parse_expr(token_tree: &TokenTree) -> Expr {
             for expr in tree {
                 exprs.push(parse_expr(&expr));
             }
-            Expr::Expr((exprs, *location))
+            Expr::Call(Call {
+                exprs,
+                location: *location,
+            })
         }
-        TokenTree::Token((token, location)) => Expr::Val((token.clone(), *location, 0)),
+        TokenTree::Token((token, location)) => Expr::Val(IdName {
+            name: token.clone(),
+            id: 0,
+            location: *location,
+        }),
     }
 }
