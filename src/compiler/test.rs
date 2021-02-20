@@ -2,20 +2,33 @@ use super::*;
 
 macro_rules! ok {
     ($text:literal, $code:literal) => {
-        if let Ok(code) = emit($text) {
-            assert_eq!(code, $code);
-        } else {
-            unreachable!("expected Ok, got Err");
+        match emit($text) {
+            Ok(code) => {
+                assert_eq!(code, $code);
+            }
+            Err(error) => {
+                eprintln!();
+                error.print($text);
+                eprintln!();
+                unreachable!(
+                    "\n\nexpected code: \n{}\ngot error:\n{}\n\n",
+                    $code,
+                    error.name()
+                );
+            }
         }
     };
 }
 
 macro_rules! err {
     ($text:literal, $error:literal) => {
-        if let Err(error) = emit($text) {
-            assert_eq!(error.name(), $error);
-        } else {
-            unreachable!("expected Err, got Ok");
+        match emit($text) {
+            Ok(code) => {
+                unreachable!("\n\nexpected error: \n{}\n\ngot code:\n{}\n", $error, code);
+            }
+            Err(error) => {
+                assert_eq!(error.name(), $error);
+            }
         }
     };
 }
