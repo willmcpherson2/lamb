@@ -128,15 +128,8 @@ fn typecheck_exprs(
         return err!(expected_defined_symbol, location, name);
     };
 
-    if namespaces.len() == 1 {
-        return typecheck_call(
-            namespaces.get(0).unwrap().symbol(),
-            ret,
-            exprs,
-            namespace,
-            def_namespace,
-            location,
-        );
+    if let [n] = &namespaces[..] {
+        return typecheck_call(n.symbol(), ret, exprs, namespace, def_namespace, location);
     }
 
     let mut new_id = None;
