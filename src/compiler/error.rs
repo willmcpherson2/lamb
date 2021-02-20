@@ -64,23 +64,22 @@ impl Error {
                 }
             } else {
                 if ch == '\n' {
-                    eprint!(
-                        "{}\n{}^\nError: {}\n{}:{}:{}\n",
-                        line,
-                        " ".repeat(column),
-                        self.message,
-                        self.compiler_file,
-                        self.compiler_line,
-                        self.compiler_column,
-                    );
-                    return;
+                    break;
                 } else {
                     line.push(ch);
                 }
             }
         }
 
-        panic!()
+        eprint!(
+            "{}\n{}^\nError: {}\n{}:{}:{}\n",
+            line,
+            " ".repeat(column),
+            self.message,
+            self.compiler_file,
+            self.compiler_line,
+            self.compiler_column,
+        );
     }
 }
 
