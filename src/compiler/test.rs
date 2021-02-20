@@ -145,6 +145,22 @@ ret i32 %1
 "
     );
 
+    ok!(
+        "(f ((x i32) i32) x) (f ((x i32) i32) x) (main (i32) (f 1))",
+        "\
+define i32 @f(i32 %0) {
+ret i32 %0
+}
+define i32 @f1(i32 %0) {
+ret i32 %0
+}
+define i32 @main() {
+%1 = call i32 @f1(i32 1)
+ret i32 %1
+}
+"
+    );
+
     err!("a", "expected_def");
 
     err!("(main (void) () ()) ((x i32", "unexpected_token");

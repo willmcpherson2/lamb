@@ -133,17 +133,8 @@ fn typecheck_exprs(
     }
 
     let mut new_id = None;
-    for (symbol_id, namespace) in namespaces.iter().enumerate().rev() {
-        if typecheck_call(
-            namespace.symbol(),
-            ret,
-            exprs,
-            namespace,
-            def_namespace,
-            location,
-        )
-        .is_ok()
-        {
+    for (symbol_id, n) in namespaces.iter().enumerate().rev() {
+        if typecheck_call(n.symbol(), ret, exprs, namespace, def_namespace, location).is_ok() {
             new_id = Some(symbol_id);
             break;
         }
