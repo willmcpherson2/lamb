@@ -17,12 +17,12 @@ pub fn typecheck(
     typecheck_main(&namespace)?;
 
     for def in &mut program.defs {
-        let def_namespace = &namespace.get_then(&def.name.name, def.name.id).unwrap().1;
+        let def_namespace = namespace.get_then(&def.name.name, def.name.id).unwrap();
 
         if let Symbol::Type(Type::Terminal(ret)) =
-            namespace.get_then(&def.func.ret.name, 0).unwrap().0
+            namespace.get_then(&def.func.ret.name, 0).unwrap().symbol()
         {
-            typecheck_expr(&mut def.expr, ret, &namespace, def_namespace)?;
+            typecheck_expr(&mut def.expr, *ret, &namespace, def_namespace)?;
         } else {
             panic!()
         }
@@ -31,14 +31,14 @@ pub fn typecheck(
 }
 
 fn typecheck_main(namespace: &Namespace) -> Result<(), Error> {
-    let symbols = if let Some(symbols) = namespace.get("main") {
-        symbols
+    let namespaces = if let Some(namespaces) = namespace.get("main") {
+        namespaces
     } else {
         return err!(expected_main);
     };
 
-    let symbol = if let [symbol] = &symbols[..] {
-        &symbol.0
+    let symbol = if let [symbol] = &namespaces[..] {
+        symbol.symbol()
     } else {
         return err!(unexpected_multi_main);
     };
@@ -83,8 +83,8 @@ fn typecheck_val(
     namespace: &Namespace,
     def_namespace: &Namespace,
 ) -> Result<(), Error> {
-    if let Some(symbols) = def_namespace.get_or(&namespace, token) {
-        let symbol = &symbols.get(0).unwrap().0;
+    if let Some(namespaces) = def_namespace.get_or(&namespace, token) {
+        let symbol = namespaces.get(0).unwrap().symbol();
 
         let terminal = match symbol {
             Symbol::Literal(terminal) | Symbol::Var(Type::Terminal(terminal)) => terminal,
@@ -122,15 +122,15 @@ fn typecheck_exprs(
         return err!(expected_func, location);
     };
 
-    let symbols = if let Some(symbols) = def_namespace.get_or(&namespace, &name) {
-        symbols
+    let namespaces = if let Some(namespaces) = def_namespace.get_or(&namespace, &name) {
+        namespaces
     } else {
         return err!(expected_defined_symbol, location, name);
     };
 
-    if symbols.len() == 1 {
+    if namespaces.len() == 1 {
         return typecheck_call(
-            &symbols.get(0).unwrap().0,
+            namespaces.get(0).unwrap().symbol(),
             ret,
             exprs,
             namespace,
@@ -140,8 +140,17 @@ fn typecheck_exprs(
     }
 
     let mut new_id = None;
-    for (symbol_id, symbol) in symbols.iter().enumerate().rev() {
-        if typecheck_call(&symbol.0, ret, exprs, namespace, def_namespace, location).is_ok() {
+    for (symbol_id, namespace) in namespaces.iter().enumerate().rev() {
+        if typecheck_call(
+            namespace.symbol(),
+            ret,
+            exprs,
+            namespace,
+            def_namespace,
+            location,
+        )
+        .is_ok()
+        {
             new_id = Some(symbol_id);
             break;
         }

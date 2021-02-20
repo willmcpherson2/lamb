@@ -1,5 +1,6 @@
 #[derive(Debug, PartialEq)]
 pub enum Symbol {
+    Module,
     Type(Type),
     Var(Type),
     Literal(Terminal),

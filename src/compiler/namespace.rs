@@ -7,17 +7,30 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Namespace {
-    namespace: HashMap<String, Vec<(Symbol, Namespace)>>,
+    symbol: Symbol,
+    namespace: HashMap<String, Vec<Namespace>>,
 }
 
-impl Namespace {
-    pub fn new() -> Self {
+impl From<(Symbol, HashMap<String, Vec<Namespace>>)> for Namespace {
+    fn from(parts: (Symbol, HashMap<String, Vec<Namespace>>)) -> Self {
         Namespace {
+            symbol: parts.0,
+            namespace: parts.1,
+        }
+    }
+}
+
+impl From<Symbol> for Namespace {
+    fn from(symbol: Symbol) -> Self {
+        Namespace {
+            symbol,
             namespace: HashMap::new(),
         }
     }
+}
 
-    pub fn new_global() -> Self {
+impl Namespace {
+    pub fn new_module() -> Self {
         let builtins = vec![
             ("void", Symbol::Type(Type::Terminal(Terminal::Void))),
             ("bool", Symbol::Type(Type::Terminal(Terminal::Bool))),
@@ -48,25 +61,25 @@ impl Namespace {
 
         let mut namespace = HashMap::new();
         for (key, val) in builtins.into_iter() {
-            namespace.insert(key.to_string(), vec![(val, Namespace::new())]);
+            namespace.insert(key.to_string(), vec![Namespace::from(val)]);
         }
 
-        Namespace { namespace }
+        Namespace::from((Symbol::Module, namespace))
     }
 
-    pub fn get(&self, key: &str) -> Option<&Vec<(Symbol, Namespace)>> {
+    pub fn symbol(&self) -> &Symbol {
+        &self.symbol
+    }
+
+    pub fn get(&self, key: &str) -> Option<&Vec<Namespace>> {
         self.namespace.get(key)
     }
 
-    pub fn get_or<'a>(
-        &'a self,
-        other: &'a Namespace,
-        key: &str,
-    ) -> Option<&'a Vec<(Symbol, Namespace)>> {
+    pub fn get_or<'a>(&'a self, other: &'a Namespace, key: &str) -> Option<&'a Vec<Namespace>> {
         self.get(key).or_else(|| other.get(key))
     }
 
-    pub fn get_then<'a>(&'a self, key: &str, id: Id) -> Option<&'a (Symbol, Namespace)> {
+    pub fn get_then<'a>(&'a self, key: &str, id: Id) -> Option<&'a Namespace> {
         self.get(key).and_then(|symbols| symbols.get(id))
     }
 
@@ -75,21 +88,21 @@ impl Namespace {
         other: &'a Namespace,
         key: &str,
         id: Id,
-    ) -> Option<&'a (Symbol, Namespace)> {
+    ) -> Option<&'a Namespace> {
         self.get_or(other, key).and_then(|symbols| symbols.get(id))
     }
 
     pub fn insert(&mut self, key: String, val: Symbol) {
-        self.namespace.insert(key, vec![(val, Namespace::new())]);
+        self.namespace.insert(key, vec![Namespace::from(val)]);
     }
 
-    pub fn insert_with_namespace(&mut self, key: String, val: Symbol, namespace: Namespace) -> Id {
-        if let Some(symbols) = self.namespace.get_mut(&key) {
-            let id = symbols.len();
-            symbols.push((val, namespace));
+    pub fn insert_namespace(&mut self, key: String, namespace: Namespace) -> Id {
+        if let Some(namespaces) = self.namespace.get_mut(&key) {
+            let id = namespaces.len();
+            namespaces.push(namespace);
             id
         } else {
-            self.namespace.insert(key, vec![(val, namespace)]);
+            self.namespace.insert(key, vec![namespace]);
             0
         }
     }

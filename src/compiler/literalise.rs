@@ -5,7 +5,7 @@ use super::symbol::Symbol;
 use super::symbol::Terminal;
 
 pub fn literalise(token_stream: TokenStream) -> (TokenStream, Namespace) {
-    let mut namespace = Namespace::new_global();
+    let mut namespace = Namespace::new_module();
 
     for token in &token_stream.tokens {
         if let Token::Other((token, _)) = token {
