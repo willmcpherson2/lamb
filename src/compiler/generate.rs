@@ -18,7 +18,7 @@ pub struct Target {
 #[derive(Debug)]
 pub struct Def {
     pub ret: Terminal,
-    pub id: (String, Id),
+    pub name: Name,
     pub params: Vec<Param>,
     pub instructions: Vec<Instruction>,
 }
@@ -42,6 +42,12 @@ pub enum Data {
 }
 
 #[derive(Debug)]
+pub struct Name {
+    pub name: String,
+    pub id: Id,
+}
+
+#[derive(Debug)]
 pub enum Instruction {
     Ret(Ret),
     Call(Call),
@@ -60,7 +66,7 @@ pub struct Ret {
 pub struct Call {
     pub out: Option<Id>,
     pub typ: Terminal,
-    pub call_id: (String, Id),
+    pub call_name: Name,
     pub args: Vec<Arg>,
 }
 
@@ -126,7 +132,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
     let mut id_map = IdMap::new();
 
     for def in &program.defs {
-        let def_id = def.name.name.clone();
+        let def_name = def.name.name.clone();
         let def_namespace = namespace.get_then(&def.name.name, def.name.id).unwrap();
 
         let mut params = Vec::new();
@@ -161,7 +167,10 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
         instructions.push(ret_instruction);
 
         let def = Def {
-            id: (def_id, def.name.id),
+            name: Name {
+                name: def_name,
+                id: def.name.id,
+            },
             params,
             instructions,
             ret,
@@ -340,7 +349,10 @@ fn generate_call(
     let instruction = Instruction::Call(Call {
         out: Some(out),
         typ: *ret,
-        call_id: (call_id, parent_id),
+        call_name: Name {
+            name: call_id,
+            id: parent_id,
+        },
         args,
     });
     instructions.push(instruction);

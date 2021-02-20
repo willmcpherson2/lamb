@@ -20,8 +20,8 @@ fn emit_def(def: &Def) -> String {
     format!(
         "define {} @{}{}({}) {{\n{}}}\n",
         def.ret,
-        def.id.0,
-        emit_id(def.id.1),
+        def.name.name,
+        emit_id(def.name.id),
         emit_params(&def.params),
         emit_instructions(&def.instructions)
     )
@@ -72,16 +72,16 @@ fn emit_instruction(instruction: &Instruction) -> String {
                     "%{} = call {} @{}{}({})\n",
                     out,
                     call.typ,
-                    call.call_id.0,
-                    emit_id(call.call_id.1),
+                    call.call_name.name,
+                    emit_id(call.call_name.id),
                     emit_args(&call.args)
                 )
             } else {
                 format!(
                     "call {} @{}{}({})\n",
                     call.typ,
-                    call.call_id.0,
-                    emit_id(call.call_id.1),
+                    call.call_name.name,
+                    emit_id(call.call_name.id),
                     emit_args(&call.args)
                 )
             }
