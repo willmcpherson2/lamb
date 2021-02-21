@@ -300,10 +300,18 @@ fn generate_expr(expr: &Expr, info: &mut Info) -> Option<Data> {
                     return None;
                 };
 
+            let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) =
+                info.namespace.get_then(parent, parent_id).unwrap().symbol()
+            {
+                *ret
+            } else {
+                panic!()
+            };
+
             let id = match info.operators.get(parent.as_str()) {
                 Some(op) => match op {
-                    Op::UnaryOp(op) => generate_unary(children, parent, parent_id, *op, info),
-                    Op::BinaryOp(op) => generate_binary(children, parent, parent_id, *op, info),
+                    Op::UnaryOp(op) => generate_unary(children, typ, *op, info),
+                    Op::BinaryOp(op) => generate_binary(children, typ, *op, info),
                 },
                 None => generate_call(children, parent, parent_id, info),
             };
@@ -313,26 +321,12 @@ fn generate_expr(expr: &Expr, info: &mut Info) -> Option<Data> {
     }
 }
 
-fn generate_unary(
-    children: &[Expr],
-    parent: &str,
-    parent_id: Id,
-    op: UnaryOp,
-    info: &mut Info,
-) -> Id {
+fn generate_unary(children: &[Expr], typ: Terminal, op: UnaryOp, info: &mut Info) -> Id {
     let child = children.get(0).unwrap();
 
     let arg = generate_expr(&child, info).unwrap();
 
     let out = info.id_map.add();
-
-    let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) =
-        info.namespace.get_then(parent, parent_id).unwrap().symbol()
-    {
-        *ret
-    } else {
-        panic!()
-    };
 
     let instruction = Instruction::Unary(Unary { op, out, typ, arg });
     info.instructions.push(instruction);
@@ -340,13 +334,7 @@ fn generate_unary(
     out
 }
 
-fn generate_binary(
-    children: &[Expr],
-    parent: &str,
-    parent_id: Id,
-    op: BinaryOp,
-    info: &mut Info,
-) -> Id {
+fn generate_binary(children: &[Expr], typ: Terminal, op: BinaryOp, info: &mut Info) -> Id {
     let child1 = children.get(0).unwrap();
     let child2 = children.get(1).unwrap();
 
@@ -354,14 +342,6 @@ fn generate_binary(
     let arg2 = generate_expr(&child2, info).unwrap();
 
     let out = info.id_map.add();
-
-    let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) =
-        info.namespace.get_then(parent, parent_id).unwrap().symbol()
-    {
-        *ret
-    } else {
-        panic!()
-    };
 
     let instruction = Instruction::Binary(Binary {
         op,
