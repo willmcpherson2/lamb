@@ -25,9 +25,9 @@ impl fmt::Display for Target {
 
 impl fmt::Display for Def {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "define {} @{}({}) {{\n{}}}\n",
+            "define {} @{}({}) {{\n{}}}",
             self.ret,
             IdName(&self.name.name, self.name.id),
             Params(&self.params),
@@ -80,25 +80,25 @@ impl fmt::Display for Instruction {
         match self {
             Instruction::Ret(ret) => {
                 if let Some(data) = &ret.data {
-                    write!(f, "ret {} {}\n", ret.typ, data)
+                    writeln!(f, "ret {} {}", ret.typ, data)
                 } else {
-                    write!(f, "ret {}\n", ret.typ)
+                    writeln!(f, "ret {}", ret.typ)
                 }
             }
             Instruction::Call(call) => {
                 if let Some(out) = &call.out {
-                    write!(
+                    writeln!(
                         f,
-                        "%{} = call {} @{}({})\n",
+                        "%{} = call {} @{}({})",
                         out,
                         call.typ,
                         IdName(&call.call_name.name, call.call_name.id),
                         Args(&call.args)
                     )
                 } else {
-                    write!(
+                    writeln!(
                         f,
-                        "call {} @{}({})\n",
+                        "call {} @{}({})",
                         call.typ,
                         IdName(&call.call_name.name, call.call_name.id),
                         Args(&call.args)
@@ -107,20 +107,16 @@ impl fmt::Display for Instruction {
             }
             Instruction::Unary(unary) => match unary.op {
                 UnaryOp::Not => {
-                    write!(
-                        f,
-                        "%{} = xor {} {}, true\n",
-                        unary.out, unary.typ, unary.arg,
-                    )
+                    writeln!(f, "%{} = xor {} {}, true", unary.out, unary.typ, unary.arg)
                 }
                 UnaryOp::BNot => {
-                    write!(f, "%{} = xor {} {}, -1\n", unary.out, unary.typ, unary.arg,)
+                    writeln!(f, "%{} = xor {} {}, -1", unary.out, unary.typ, unary.arg)
                 }
             },
             Instruction::Binary(binary) => {
-                write!(
+                writeln!(
                     f,
-                    "%{} = {} {} {}, {}\n",
+                    "%{} = {} {} {}, {}",
                     binary.out,
                     Op(binary.op, binary.typ),
                     binary.typ,
