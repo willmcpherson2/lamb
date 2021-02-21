@@ -31,40 +31,7 @@ impl From<Symbol> for Namespace {
 
 impl Namespace {
     pub fn new_module() -> Self {
-        let builtins = vec![
-            ("void", Symbol::Type(Type::Terminal(Terminal::Void))),
-            ("bool", Symbol::Type(Type::Terminal(Terminal::Bool))),
-            ("i32", Symbol::Type(Type::Terminal(Terminal::I32))),
-            ("f32", Symbol::Type(Type::Terminal(Terminal::F32))),
-            (
-                "!",
-                Symbol::Var(Type::Func(Func {
-                    params: vec![Terminal::Bool],
-                    ret: Terminal::Bool,
-                })),
-            ),
-            (
-                "+",
-                Symbol::Var(Type::Func(Func {
-                    params: vec![Terminal::I32, Terminal::I32],
-                    ret: Terminal::I32,
-                })),
-            ),
-            (
-                "*",
-                Symbol::Var(Type::Func(Func {
-                    params: vec![Terminal::F32, Terminal::F32],
-                    ret: Terminal::F32,
-                })),
-            ),
-        ];
-
-        let mut namespace = HashMap::new();
-        for (key, val) in builtins.into_iter() {
-            namespace.insert(key.to_string(), vec![Namespace::from(val)]);
-        }
-
-        Namespace::from((Symbol::Module, namespace))
+        Namespace::from((Symbol::Module, builtins()))
     }
 
     pub fn symbol(&self) -> &Symbol {
@@ -106,4 +73,147 @@ impl Namespace {
             0
         }
     }
+}
+
+fn builtins() -> HashMap<String, Vec<Namespace>> {
+    macro_rules! typ {
+        ($s:literal, $terminal:tt) => {
+            (
+                $s.to_string(),
+                vec![Namespace::from(Symbol::Type(Type::Terminal(
+                    Terminal::$terminal,
+                )))],
+            )
+        };
+    }
+
+    macro_rules! unary {
+        ($s:literal, $params:ident) => {{
+            (
+                $s.to_string(),
+                $params
+                    .iter()
+                    .map(|param| {
+                        Namespace::from(Symbol::Var(Type::Func(Func {
+                            params: vec![*param],
+                            ret: *param,
+                        })))
+                    })
+                    .collect(),
+            )
+        }};
+    }
+
+    macro_rules! binary {
+        ($s:literal, $params:ident) => {{
+            (
+                $s.to_string(),
+                $params
+                    .iter()
+                    .map(|param| {
+                        Namespace::from(Symbol::Var(Type::Func(Func {
+                            params: vec![*param, *param],
+                            ret: *param,
+                        })))
+                    })
+                    .collect(),
+            )
+        }};
+
+        ($s:literal, $params:ident, $ret:expr) => {{
+            (
+                $s.to_string(),
+                $params
+                    .iter()
+                    .map(|param| {
+                        Namespace::from(Symbol::Var(Type::Func(Func {
+                            params: vec![*param, *param],
+                            ret: $ret,
+                        })))
+                    })
+                    .collect(),
+            )
+        }};
+    }
+
+    const BOOL: [Terminal; 1] = [Terminal::Bool];
+
+    const INT: [Terminal; 8] = [
+        Terminal::U8,
+        Terminal::U16,
+        Terminal::U32,
+        Terminal::U64,
+        Terminal::I8,
+        Terminal::I16,
+        Terminal::I32,
+        Terminal::I64,
+    ];
+
+    const NUM: [Terminal; 11] = [
+        Terminal::U8,
+        Terminal::U16,
+        Terminal::U32,
+        Terminal::U64,
+        Terminal::I8,
+        Terminal::I16,
+        Terminal::I32,
+        Terminal::I64,
+        Terminal::F16,
+        Terminal::F32,
+        Terminal::F64,
+    ];
+
+    const ANY: [Terminal; 12] = [
+        Terminal::Bool,
+        Terminal::U8,
+        Terminal::U16,
+        Terminal::U32,
+        Terminal::U64,
+        Terminal::I8,
+        Terminal::I16,
+        Terminal::I32,
+        Terminal::I64,
+        Terminal::F16,
+        Terminal::F32,
+        Terminal::F64,
+    ];
+
+    vec![
+        typ!("void", Void),
+        typ!("bool", Bool),
+        typ!("u8", U8),
+        typ!("u16", U16),
+        typ!("u32", U32),
+        typ!("u64", U64),
+        typ!("i8", I8),
+        typ!("i16", I16),
+        typ!("i32", I32),
+        typ!("i64", I64),
+        typ!("f16", F16),
+        typ!("f32", F32),
+        typ!("f64", F64),
+        unary!("!", BOOL),
+        unary!("~", INT),
+        binary!("+", NUM),
+        binary!("-", NUM),
+        binary!("*", NUM),
+        binary!("/", NUM),
+        binary!("%", NUM),
+        binary!("&", INT),
+        binary!("|", INT),
+        binary!("^", INT),
+        binary!("<<", INT),
+        binary!(">>", INT),
+        binary!("&&", BOOL),
+        binary!("||", BOOL),
+        binary!("^^", BOOL),
+        binary!("==", ANY, Terminal::Bool),
+        binary!("!=", ANY, Terminal::Bool),
+        binary!("<=", NUM, Terminal::Bool),
+        binary!(">=", NUM, Terminal::Bool),
+        binary!("<", NUM, Terminal::Bool),
+        binary!(">", NUM, Terminal::Bool),
+    ]
+    .into_iter()
+    .collect()
 }

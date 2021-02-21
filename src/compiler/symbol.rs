@@ -22,6 +22,15 @@ pub struct Func {
 pub enum Terminal {
     Void,
     Bool,
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
     I32,
+    I64,
+    F16,
     F32,
+    F64,
 }

@@ -51,9 +51,8 @@ pub struct Name {
 pub enum Instruction {
     Ret(Ret),
     Call(Call),
-    Add(Add),
-    Mul(Mul),
-    Not(Not),
+    Unary(Unary),
+    Binary(Binary),
 }
 
 #[derive(Debug)]
@@ -71,25 +70,55 @@ pub struct Call {
 }
 
 #[derive(Debug)]
-pub struct Add {
+pub struct Unary {
     pub out: Id,
+    pub op: UnaryOp,
     pub typ: Terminal,
-    pub arg1: Data,
-    pub arg2: Data,
-}
-
-#[derive(Debug)]
-pub struct Mul {
-    pub out: Id,
-    pub typ: Terminal,
-    pub arg1: Data,
-    pub arg2: Data,
-}
-
-#[derive(Debug)]
-pub struct Not {
-    pub out: Id,
     pub arg: Data,
+}
+
+#[derive(Debug)]
+pub struct Binary {
+    pub out: Id,
+    pub op: BinaryOp,
+    pub typ: Terminal,
+    pub arg1: Data,
+    pub arg2: Data,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum Op {
+    UnaryOp(UnaryOp),
+    BinaryOp(BinaryOp),
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum UnaryOp {
+    Not,
+    BNot,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Rem,
+    And,
+    Or,
+    Xor,
+    BitAnd,
+    BitOr,
+    BitXor,
+    LShift,
+    RShift,
+    Equal,
+    NEqual,
+    LEqual,
+    GEqual,
+    Less,
+    Greater,
 }
 
 struct IdMap {
@@ -127,7 +156,49 @@ impl IdMap {
     }
 }
 
+fn operators() -> HashMap<String, Op> {
+    macro_rules! unary {
+        ($s:literal, $op:tt) => {
+            ($s.to_string(), Op::UnaryOp(UnaryOp::$op))
+        };
+    }
+
+    macro_rules! binary {
+        ($s:literal, $op:tt) => {
+            ($s.to_string(), Op::BinaryOp(BinaryOp::$op))
+        };
+    }
+
+    vec![
+        unary!("!", Not),
+        unary!("~", BNot),
+        binary!("+", Add),
+        binary!("-", Sub),
+        binary!("*", Mul),
+        binary!("/", Div),
+        binary!("%", Rem),
+        binary!("&", BitAnd),
+        binary!("|", BitOr),
+        binary!("^", BitXor),
+        binary!("<<", LShift),
+        binary!(">>", RShift),
+        binary!("&&", And),
+        binary!("||", Or),
+        binary!("^^", Xor),
+        binary!("==", Equal),
+        binary!("!=", NEqual),
+        binary!("<=", LEqual),
+        binary!(">=", GEqual),
+        binary!("<", Less),
+        binary!(">", Greater),
+    ]
+    .into_iter()
+    .collect()
+}
+
 pub fn generate(program: Program, namespace: Namespace) -> Target {
+    let operators = operators();
+
     let mut defs = Vec::new();
     let mut id_map = IdMap::new();
 
@@ -159,6 +230,7 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
             &mut id_map,
             &namespace,
             def_namespace,
+            &operators,
         );
         let ret_instruction = Instruction::Ret(Ret {
             typ: ret,
@@ -197,6 +269,7 @@ fn generate_expr(
     id_map: &mut IdMap,
     namespace: &Namespace,
     def_namespace: &Namespace,
+    operators: &HashMap<String, Op>,
 ) -> Option<Data> {
     match expr {
         Expr::Val(IdName { name, .. }) => {
@@ -223,11 +296,32 @@ fn generate_expr(
                     return None;
                 };
 
-            let id = match parent.as_str() {
-                "+" => generate_add(instructions, id_map, namespace, def_namespace, children),
-                "*" => generate_mul(instructions, id_map, namespace, def_namespace, children),
-                "!" => generate_not(instructions, id_map, namespace, def_namespace, children),
-                _ => generate_call(
+            let id = match operators.get(parent.as_str()) {
+                Some(op) => match op {
+                    Op::UnaryOp(op) => generate_unary(
+                        instructions,
+                        id_map,
+                        namespace,
+                        def_namespace,
+                        children,
+                        parent,
+                        parent_id,
+                        operators,
+                        *op,
+                    ),
+                    Op::BinaryOp(op) => generate_binary(
+                        instructions,
+                        id_map,
+                        namespace,
+                        def_namespace,
+                        children,
+                        parent,
+                        parent_id,
+                        operators,
+                        *op,
+                    ),
+                },
+                None => generate_call(
                     instructions,
                     id_map,
                     namespace,
@@ -235,6 +329,7 @@ fn generate_expr(
                     children,
                     parent,
                     parent_id,
+                    operators,
                 ),
             };
 
@@ -243,76 +338,95 @@ fn generate_expr(
     }
 }
 
-fn generate_add(
+fn generate_unary(
     instructions: &mut Vec<Instruction>,
     id_map: &mut IdMap,
     namespace: &Namespace,
     def_namespace: &Namespace,
     children: &[Expr],
-) -> Id {
-    let child1 = children.get(0).unwrap();
-    let child2 = children.get(1).unwrap();
-
-    let arg1 = generate_expr(&child1, instructions, id_map, namespace, def_namespace).unwrap();
-    let arg2 = generate_expr(&child2, instructions, id_map, namespace, def_namespace).unwrap();
-
-    let out = id_map.add();
-
-    let typ = Terminal::I32;
-
-    let instruction = Instruction::Add(Add {
-        out,
-        typ,
-        arg1,
-        arg2,
-    });
-    instructions.push(instruction);
-
-    out
-}
-
-fn generate_mul(
-    instructions: &mut Vec<Instruction>,
-    id_map: &mut IdMap,
-    namespace: &Namespace,
-    def_namespace: &Namespace,
-    children: &[Expr],
-) -> Id {
-    let child1 = children.get(0).unwrap();
-    let child2 = children.get(1).unwrap();
-
-    let arg1 = generate_expr(&child1, instructions, id_map, namespace, def_namespace).unwrap();
-    let arg2 = generate_expr(&child2, instructions, id_map, namespace, def_namespace).unwrap();
-
-    let out = id_map.add();
-
-    let typ = Terminal::F32;
-
-    let instruction = Instruction::Mul(Mul {
-        out,
-        typ,
-        arg1,
-        arg2,
-    });
-    instructions.push(instruction);
-
-    out
-}
-
-fn generate_not(
-    instructions: &mut Vec<Instruction>,
-    id_map: &mut IdMap,
-    namespace: &Namespace,
-    def_namespace: &Namespace,
-    children: &[Expr],
+    parent: &str,
+    parent_id: Id,
+    operators: &HashMap<String, Op>,
+    op: UnaryOp,
 ) -> Id {
     let child = children.get(0).unwrap();
 
-    let arg = generate_expr(&child, instructions, id_map, namespace, def_namespace).unwrap();
+    let arg = generate_expr(
+        &child,
+        instructions,
+        id_map,
+        namespace,
+        def_namespace,
+        operators,
+    )
+    .unwrap();
 
     let out = id_map.add();
 
-    let instruction = Instruction::Not(Not { out, arg });
+    let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) =
+        namespace.get_then(parent, parent_id).unwrap().symbol()
+    {
+        *ret
+    } else {
+        panic!()
+    };
+
+    let instruction = Instruction::Unary(Unary { op, out, typ, arg });
+    instructions.push(instruction);
+
+    out
+}
+
+fn generate_binary(
+    instructions: &mut Vec<Instruction>,
+    id_map: &mut IdMap,
+    namespace: &Namespace,
+    def_namespace: &Namespace,
+    children: &[Expr],
+    parent: &str,
+    parent_id: Id,
+    operators: &HashMap<String, Op>,
+    op: BinaryOp,
+) -> Id {
+    let child1 = children.get(0).unwrap();
+    let child2 = children.get(1).unwrap();
+
+    let arg1 = generate_expr(
+        &child1,
+        instructions,
+        id_map,
+        namespace,
+        def_namespace,
+        operators,
+    )
+    .unwrap();
+    let arg2 = generate_expr(
+        &child2,
+        instructions,
+        id_map,
+        namespace,
+        def_namespace,
+        operators,
+    )
+    .unwrap();
+
+    let out = id_map.add();
+
+    let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) =
+        namespace.get_then(parent, parent_id).unwrap().symbol()
+    {
+        *ret
+    } else {
+        panic!()
+    };
+
+    let instruction = Instruction::Binary(Binary {
+        op,
+        out,
+        typ,
+        arg1,
+        arg2,
+    });
     instructions.push(instruction);
 
     out
@@ -326,6 +440,7 @@ fn generate_call(
     children: &[Expr],
     parent: &str,
     parent_id: Id,
+    operators: &HashMap<String, Op>,
 ) -> Id {
     let (params, ret) = if let Symbol::Var(Type::Func(Func { params, ret })) =
         namespace.get_then(parent, parent_id).unwrap().symbol()
@@ -337,7 +452,15 @@ fn generate_call(
 
     let mut args = Vec::new();
     for (typ, child) in params.iter().zip(children.iter()) {
-        let data = generate_expr(&child, instructions, id_map, namespace, def_namespace).unwrap();
+        let data = generate_expr(
+            &child,
+            instructions,
+            id_map,
+            namespace,
+            def_namespace,
+            operators,
+        )
+        .unwrap();
         let arg = Arg { typ: *typ, data };
         args.push(arg);
     }
