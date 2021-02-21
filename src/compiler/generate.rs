@@ -196,6 +196,14 @@ fn operators() -> HashMap<String, Op> {
     .collect()
 }
 
+struct Info<'a> {
+    instructions: &'a mut Vec<Instruction>,
+    id_map: &'a mut IdMap,
+    namespace: &'a Namespace,
+    def_namespace: &'a Namespace,
+    operators: &'a HashMap<String, Op>,
+}
+
 pub fn generate(program: Program, namespace: Namespace) -> Target {
     let operators = operators();
 
@@ -226,11 +234,13 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
         let mut instructions = Vec::new();
         let ret_data = generate_expr(
             &def.expr,
-            &mut instructions,
-            &mut id_map,
-            &namespace,
-            def_namespace,
-            &operators,
+            &mut Info {
+                instructions: &mut instructions,
+                id_map: &mut id_map,
+                namespace: &namespace,
+                def_namespace,
+                operators: &operators,
+            },
         );
         let ret_instruction = Instruction::Ret(Ret {
             typ: ret,
@@ -263,23 +273,17 @@ fn get_terminal(typ: &str, namespace: &Namespace) -> Terminal {
     }
 }
 
-fn generate_expr(
-    expr: &Expr,
-    instructions: &mut Vec<Instruction>,
-    id_map: &mut IdMap,
-    namespace: &Namespace,
-    def_namespace: &Namespace,
-    operators: &HashMap<String, Op>,
-) -> Option<Data> {
+fn generate_expr(expr: &Expr, info: &mut Info) -> Option<Data> {
     match expr {
         Expr::Val(IdName { name, .. }) => {
-            let symbol = def_namespace
-                .get_or_then(namespace, &name, 0)
+            let symbol = info
+                .def_namespace
+                .get_or_then(info.namespace, &name, 0)
                 .unwrap()
                 .symbol();
 
             match symbol {
-                Symbol::Var(_) => Some(Data::Id(id_map.get(&name))),
+                Symbol::Var(_) => Some(Data::Id(info.id_map.get(&name))),
                 Symbol::Literal(_) => Some(Data::Literal(name.clone())),
                 _ => panic!(),
             }
@@ -296,41 +300,12 @@ fn generate_expr(
                     return None;
                 };
 
-            let id = match operators.get(parent.as_str()) {
+            let id = match info.operators.get(parent.as_str()) {
                 Some(op) => match op {
-                    Op::UnaryOp(op) => generate_unary(
-                        instructions,
-                        id_map,
-                        namespace,
-                        def_namespace,
-                        children,
-                        parent,
-                        parent_id,
-                        operators,
-                        *op,
-                    ),
-                    Op::BinaryOp(op) => generate_binary(
-                        instructions,
-                        id_map,
-                        namespace,
-                        def_namespace,
-                        children,
-                        parent,
-                        parent_id,
-                        operators,
-                        *op,
-                    ),
+                    Op::UnaryOp(op) => generate_unary(children, parent, parent_id, *op, info),
+                    Op::BinaryOp(op) => generate_binary(children, parent, parent_id, *op, info),
                 },
-                None => generate_call(
-                    instructions,
-                    id_map,
-                    namespace,
-                    def_namespace,
-                    children,
-                    parent,
-                    parent_id,
-                    operators,
-                ),
+                None => generate_call(children, parent, parent_id, info),
             };
 
             Some(Data::Id(id))
@@ -339,32 +314,20 @@ fn generate_expr(
 }
 
 fn generate_unary(
-    instructions: &mut Vec<Instruction>,
-    id_map: &mut IdMap,
-    namespace: &Namespace,
-    def_namespace: &Namespace,
     children: &[Expr],
     parent: &str,
     parent_id: Id,
-    operators: &HashMap<String, Op>,
     op: UnaryOp,
+    info: &mut Info,
 ) -> Id {
     let child = children.get(0).unwrap();
 
-    let arg = generate_expr(
-        &child,
-        instructions,
-        id_map,
-        namespace,
-        def_namespace,
-        operators,
-    )
-    .unwrap();
+    let arg = generate_expr(&child, info).unwrap();
 
-    let out = id_map.add();
+    let out = info.id_map.add();
 
     let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) =
-        namespace.get_then(parent, parent_id).unwrap().symbol()
+        info.namespace.get_then(parent, parent_id).unwrap().symbol()
     {
         *ret
     } else {
@@ -372,48 +335,28 @@ fn generate_unary(
     };
 
     let instruction = Instruction::Unary(Unary { op, out, typ, arg });
-    instructions.push(instruction);
+    info.instructions.push(instruction);
 
     out
 }
 
 fn generate_binary(
-    instructions: &mut Vec<Instruction>,
-    id_map: &mut IdMap,
-    namespace: &Namespace,
-    def_namespace: &Namespace,
     children: &[Expr],
     parent: &str,
     parent_id: Id,
-    operators: &HashMap<String, Op>,
     op: BinaryOp,
+    info: &mut Info,
 ) -> Id {
     let child1 = children.get(0).unwrap();
     let child2 = children.get(1).unwrap();
 
-    let arg1 = generate_expr(
-        &child1,
-        instructions,
-        id_map,
-        namespace,
-        def_namespace,
-        operators,
-    )
-    .unwrap();
-    let arg2 = generate_expr(
-        &child2,
-        instructions,
-        id_map,
-        namespace,
-        def_namespace,
-        operators,
-    )
-    .unwrap();
+    let arg1 = generate_expr(&child1, info).unwrap();
+    let arg2 = generate_expr(&child2, info).unwrap();
 
-    let out = id_map.add();
+    let out = info.id_map.add();
 
     let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) =
-        namespace.get_then(parent, parent_id).unwrap().symbol()
+        info.namespace.get_then(parent, parent_id).unwrap().symbol()
     {
         *ret
     } else {
@@ -427,23 +370,14 @@ fn generate_binary(
         arg1,
         arg2,
     });
-    instructions.push(instruction);
+    info.instructions.push(instruction);
 
     out
 }
 
-fn generate_call(
-    instructions: &mut Vec<Instruction>,
-    id_map: &mut IdMap,
-    namespace: &Namespace,
-    def_namespace: &Namespace,
-    children: &[Expr],
-    parent: &str,
-    parent_id: Id,
-    operators: &HashMap<String, Op>,
-) -> Id {
+fn generate_call(children: &[Expr], parent: &str, parent_id: Id, info: &mut Info) -> Id {
     let (params, ret) = if let Symbol::Var(Type::Func(Func { params, ret })) =
-        namespace.get_then(parent, parent_id).unwrap().symbol()
+        info.namespace.get_then(parent, parent_id).unwrap().symbol()
     {
         (params, ret)
     } else {
@@ -452,22 +386,14 @@ fn generate_call(
 
     let mut args = Vec::new();
     for (typ, child) in params.iter().zip(children.iter()) {
-        let data = generate_expr(
-            &child,
-            instructions,
-            id_map,
-            namespace,
-            def_namespace,
-            operators,
-        )
-        .unwrap();
+        let data = generate_expr(&child, info).unwrap();
         let arg = Arg { typ: *typ, data };
         args.push(arg);
     }
 
     let call_id = parent.to_string();
 
-    let out = id_map.add();
+    let out = info.id_map.add();
 
     let instruction = Instruction::Call(Call {
         out: Some(out),
@@ -478,7 +404,7 @@ fn generate_call(
         },
         args,
     });
-    instructions.push(instruction);
+    info.instructions.push(instruction);
 
     out
 }
