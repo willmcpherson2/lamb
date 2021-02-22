@@ -63,10 +63,6 @@ impl Namespace {
         self.get_or(other, key).and_then(|symbols| symbols.get(id))
     }
 
-    pub fn insert(&mut self, key: String, val: Symbol) {
-        self.namespace.insert(key, vec![Namespace::from(val)]);
-    }
-
     pub fn insert_namespaces(&mut self, key: String, namespaces: Vec<Namespace>) {
         self.namespace.insert(key, namespaces);
     }
