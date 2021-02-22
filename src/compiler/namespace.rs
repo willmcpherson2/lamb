@@ -3,6 +3,10 @@ use super::symbol::Func;
 use super::symbol::Symbol;
 use super::symbol::Terminal;
 use super::symbol::Type;
+use crate::compiler::symbol::ANY;
+use crate::compiler::symbol::BOOL;
+use crate::compiler::symbol::INT;
+use crate::compiler::symbol::NUM;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -61,6 +65,10 @@ impl Namespace {
 
     pub fn insert(&mut self, key: String, val: Symbol) {
         self.namespace.insert(key, vec![Namespace::from(val)]);
+    }
+
+    pub fn insert_namespaces(&mut self, key: String, namespaces: Vec<Namespace>) {
+        self.namespace.insert(key, namespaces);
     }
 
     pub fn insert_namespace(&mut self, key: String, namespace: Namespace) -> Id {
@@ -135,48 +143,6 @@ fn builtins() -> HashMap<String, Vec<Namespace>> {
             )
         }};
     }
-
-    const BOOL: [Terminal; 1] = [Terminal::Bool];
-
-    const INT: [Terminal; 8] = [
-        Terminal::U8,
-        Terminal::U16,
-        Terminal::U32,
-        Terminal::U64,
-        Terminal::I8,
-        Terminal::I16,
-        Terminal::I32,
-        Terminal::I64,
-    ];
-
-    const NUM: [Terminal; 11] = [
-        Terminal::U8,
-        Terminal::U16,
-        Terminal::U32,
-        Terminal::U64,
-        Terminal::I8,
-        Terminal::I16,
-        Terminal::I32,
-        Terminal::I64,
-        Terminal::F16,
-        Terminal::F32,
-        Terminal::F64,
-    ];
-
-    const ANY: [Terminal; 12] = [
-        Terminal::Bool,
-        Terminal::U8,
-        Terminal::U16,
-        Terminal::U32,
-        Terminal::U64,
-        Terminal::I8,
-        Terminal::I16,
-        Terminal::I32,
-        Terminal::I64,
-        Terminal::F16,
-        Terminal::F32,
-        Terminal::F64,
-    ];
 
     vec![
         typ!("void", Void),

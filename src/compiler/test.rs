@@ -218,6 +218,19 @@ ret i32 %2
 "
     );
 
+    ok!(
+        "(f (i8) (+ 1 2)) (main (i32) 0)",
+        "\
+define i8 @f() {
+%1 = add i8 1, 2
+ret i8 %1
+}
+define i32 @main() {
+ret i32 0
+}
+"
+    );
+
     err!("a", "expected_def");
 
     err!("(main (void) () ()) ((x i32", "unexpected_token");

@@ -201,6 +201,10 @@ macro_rules! error_impl {
         error_new!($name, $location, format!("This type cannot be used. Expected `{:?}`, but got `{:?}`.", $expected, $got))
     };
 
+    (type_mismatch, $name:tt, $location:expr, $expected:expr) => {
+        error_new!($name, $location, format!("This type cannot be used. Expected `{:?}`.", $expected))
+    };
+
     (func_type_mismatch, $name:tt, $location:expr, $expected:expr, $got:expr) => {
         error_new!($name, $location, format!("Function call gives wrong type. Expected `{:?}`, but this returns `{:?}`.", $expected, $got))
     };

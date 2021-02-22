@@ -84,17 +84,19 @@ fn typecheck_val(
     def_namespace: &Namespace,
 ) -> Result<(), Error> {
     if let Some(namespaces) = def_namespace.get_or(&namespace, token) {
-        let symbol = namespaces.get(0).unwrap().symbol();
+        for namespace in namespaces {
+            let symbol = namespace.symbol();
 
-        let terminal = match symbol {
-            Symbol::Literal(terminal) | Symbol::Var(Type::Terminal(terminal)) => terminal,
-            _ => return err!(expected_literal_or_var, location),
-        };
+            let terminal = match symbol {
+                Symbol::Literal(terminal) | Symbol::Var(Type::Terminal(terminal)) => terminal,
+                _ => return err!(expected_literal_or_var, location),
+            };
 
-        if *terminal != ret {
-            return err!(type_mismatch, location, ret, terminal);
+            if *terminal == ret {
+                return Ok(());
+            }
         }
-        Ok(())
+        err!(type_mismatch, location, ret)
     } else {
         err!(expected_defined_symbol, location, &token)
     }
