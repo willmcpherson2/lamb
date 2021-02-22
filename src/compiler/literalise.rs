@@ -8,7 +8,7 @@ pub fn literalise(token_stream: TokenStream) -> (TokenStream, Namespace) {
     let mut namespace = Namespace::new_module();
 
     for token in &token_stream.tokens {
-        if let Token::Other((token, _)) = token {
+        if let Token::Other(token, _) = token {
             if let Some(terminal) = literal(&token) {
                 namespace.insert(token.clone(), Symbol::Literal(terminal));
             }

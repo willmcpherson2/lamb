@@ -9,7 +9,7 @@ pub struct TokenStream {
 pub enum Token {
     Open(Location),
     Close,
-    Other((String, Location)),
+    Other(String, Location),
 }
 
 pub fn lex(text: &str) -> TokenStream {
@@ -36,9 +36,9 @@ pub fn lex(text: &str) -> TokenStream {
             }
             _ => {
                 if let State::Ready = state {
-                    tokens.push(Token::Other((String::from(ch), location)));
+                    tokens.push(Token::Other(String::from(ch), location));
                 } else {
-                    if let Some(Token::Other((token, _))) = tokens.last_mut() {
+                    if let Some(Token::Other(token, _)) = tokens.last_mut() {
                         token.push(ch);
                     } else {
                         panic!();

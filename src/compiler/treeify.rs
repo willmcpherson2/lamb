@@ -5,8 +5,8 @@ use std::slice;
 
 #[derive(Debug)]
 pub enum TokenTree {
-    Token((String, Location)),
-    Tree((Vec<TokenTree>, Location)),
+    Token(String, Location),
+    Tree(Vec<TokenTree>, Location),
 }
 
 pub fn treeify(token_stream: TokenStream) -> TokenTree {
@@ -15,7 +15,7 @@ pub fn treeify(token_stream: TokenStream) -> TokenTree {
     while let Some(token_tree) = treeify_impl(&mut token_stream_iter) {
         tree.push(token_tree)
     }
-    TokenTree::Tree((tree, 0))
+    TokenTree::Tree(tree, 0)
 }
 
 fn treeify_impl(token_stream_iter: &mut slice::Iter<'_, lex::Token>) -> Option<TokenTree> {
@@ -26,11 +26,11 @@ fn treeify_impl(token_stream_iter: &mut slice::Iter<'_, lex::Token>) -> Option<T
                 while let Some(token_tree) = treeify_impl(token_stream_iter) {
                     tree.push(token_tree);
                 }
-                Some(TokenTree::Tree((tree, *location)))
+                Some(TokenTree::Tree(tree, *location))
             }
             lex::Token::Close => None,
-            lex::Token::Other((ref token, location)) => {
-                Some(TokenTree::Token((token.clone(), *location)))
+            lex::Token::Other(ref token, location) => {
+                Some(TokenTree::Token(token.clone(), *location))
             }
         }
     } else {
