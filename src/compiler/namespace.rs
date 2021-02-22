@@ -67,13 +67,13 @@ impl Namespace {
         self.namespace.insert(key, namespaces);
     }
 
-    pub fn append_namespace(&mut self, key: String, namespace: Namespace) -> Id {
-        if let Some(namespaces) = self.namespace.get_mut(&key) {
+    pub fn append_namespace(&mut self, key: &str, namespace: Namespace) -> Id {
+        if let Some(namespaces) = self.namespace.get_mut(key) {
             let id = namespaces.len();
             namespaces.push(namespace);
             id
         } else {
-            self.namespace.insert(key, vec![namespace]);
+            self.namespace.insert(key.to_string(), vec![namespace]);
             0
         }
     }

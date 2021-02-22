@@ -13,7 +13,6 @@ pub fn resolve(
     mut namespace: Namespace,
 ) -> Result<(Program, Namespace), Error> {
     for def in &mut program.defs {
-        let name = def.name.name.clone();
         let mut def_namespace = HashMap::new();
 
         let mut params = Vec::new();
@@ -31,7 +30,7 @@ pub fn resolve(
 
         let symbol = Symbol::Var(Type::Func(Func { params, ret }));
         let def_namespace = Namespace::from((symbol, def_namespace));
-        let id = namespace.append_namespace(name, def_namespace);
+        let id = namespace.append_namespace(&def.name.name, def_namespace);
         def.name.id = id;
     }
 
