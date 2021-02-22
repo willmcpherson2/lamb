@@ -67,7 +67,7 @@ impl Namespace {
         self.namespace.insert(key, namespaces);
     }
 
-    pub fn insert_namespace(&mut self, key: String, namespace: Namespace) -> Id {
+    pub fn append_namespace(&mut self, key: String, namespace: Namespace) -> Id {
         if let Some(namespaces) = self.namespace.get_mut(&key) {
             let id = namespaces.len();
             namespaces.push(namespace);

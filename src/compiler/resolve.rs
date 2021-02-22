@@ -31,7 +31,7 @@ pub fn resolve(
 
         let symbol = Symbol::Var(Type::Func(Func { params, ret }));
         let def_namespace = Namespace::from((symbol, def_namespace));
-        let id = namespace.insert_namespace(name, def_namespace);
+        let id = namespace.append_namespace(name, def_namespace);
         def.name.id = id;
     }
 
