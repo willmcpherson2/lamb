@@ -216,9 +216,14 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
 
         let mut params = Vec::new();
         for param in &def.func.params {
-            let param_id = id_map.insert(param.name.name.clone());
+            let (param_id, typ) = match param {
+                parse::Param::NameType(parse::NameType { name, typ, .. }) => {
+                    (id_map.insert(name.name.clone()), &typ.typ)
+                }
+                parse::Param::Type(parse::Type { typ, .. }) => (id_map.add(), typ),
+            };
 
-            let param_type = get_terminal(&param.typ.name, &namespace);
+            let param_type = get_terminal(typ, &namespace);
 
             let param = Param {
                 typ: param_type,

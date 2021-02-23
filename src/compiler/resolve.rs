@@ -1,6 +1,8 @@
 use super::common::Location;
 use super::error::Error;
 use super::namespace::Namespace;
+use super::parse;
+use super::parse::Param;
 use super::parse::Program;
 use super::symbol::Func;
 use super::symbol::Symbol;
@@ -17,13 +19,18 @@ pub fn resolve(
 
         let mut params = Vec::new();
         for param in &def.func.params {
-            let param_name = param.name.name.clone();
+            let (name, typ) = match param {
+                Param::NameType(parse::NameType { name, typ, .. }) => (Some(&name.name), typ),
+                Param::Type(typ) => (None, typ),
+            };
 
-            let param_type = get_terminal(&param.typ.name, param.typ.location, &namespace)?;
+            let param_type = get_terminal(&typ.typ, typ.location, &namespace)?;
             params.push(param_type);
 
-            let symbol = Symbol::Var(Type::Terminal(param_type));
-            def_namespace.insert(param_name, vec![Namespace::from(symbol)]);
+            if let Some(name) = name {
+                let symbol = Symbol::Var(Type::Terminal(param_type));
+                def_namespace.insert(name.clone(), vec![Namespace::from(symbol)]);
+            }
         }
 
         let ret = get_terminal(&def.func.ret.name, def.func.ret.location, &namespace)?;
