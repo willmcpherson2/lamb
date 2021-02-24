@@ -34,7 +34,7 @@ macro_rules! err {
 }
 
 #[test]
-#[allow(clippy::pedantic)]
+#[allow(clippy::too_many_lines)]
 #[allow(clippy::cognitive_complexity)]
 fn test() {
     ok!(
