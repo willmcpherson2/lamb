@@ -216,8 +216,8 @@ impl Display for Op {
             BinaryOp::NEqual => instruction!(typ, "icmp ne", "icmp ne", "fcmp une"),
             BinaryOp::LEqual => instruction!(typ, "icmp ule", "icmp sle", "fcmp ole"),
             BinaryOp::GEqual => instruction!(typ, "icmp uge", "icmp sge", "fcmp oge"),
-            BinaryOp::Less => instruction!(typ, "icmp ult", "icmp slt", "icmp olt"),
-            BinaryOp::Greater => instruction!(typ, "icmp ugt", "icmp sgt", "icmp ogt"),
+            BinaryOp::Less => instruction!(typ, "icmp ult", "icmp slt", "fcmp olt"),
+            BinaryOp::Greater => instruction!(typ, "icmp ugt", "icmp sgt", "fcmp ogt"),
         })
     }
 }
