@@ -256,6 +256,56 @@ ret i32 %2
 "
     );
 
+    ok!(
+        "(f (i32 (y i32) i32) y) (f (i32) (f 1 2)) (main (i32) (f))",
+        "\
+define i32 @f(i32 %0, i32 %1) {
+ret i32 %1
+}
+define i32 @f1() {
+%1 = call i32 @f(i32 1, i32 2)
+ret i32 %1
+}
+define i32 @main() {
+%1 = call i32 @f1()
+ret i32 %1
+}
+"
+    );
+
+    ok!(
+        "(f (void) ()) (g (void) (f)) (main (i32) 0)",
+        "\
+define void @f() {
+ret void
+}
+define void @g() {
+call void @f()
+ret void
+}
+define i32 @main() {
+ret i32 0
+}
+"
+    );
+
+    ok!(
+        "(f (i32) 0) (f (i32) (f)) (main (i32) (f))",
+        "\
+define i32 @f() {
+ret i32 0
+}
+define i32 @f1() {
+%1 = call i32 @f()
+ret i32 %1
+}
+define i32 @main() {
+%1 = call i32 @f1()
+ret i32 %1
+}
+"
+    );
+
     err!("a", "expected_def");
 
     err!("(main (void) () ()) ((x i32", "unexpected_token");
@@ -333,4 +383,14 @@ ret i32 %2
         "(f ((x i32) i32) 0) (f (i32) 1) (main (i32) (f 1 2))",
         "no_type_match"
     );
+
+    err!("(main (i32) (^ 1 2 3))", "no_type_match");
+
+    err!("(main ((x i32) i32) (&& x true))", "func_type_mismatch");
+
+    err!("(main ((x i32) i32) (&& x 1))", "func_type_mismatch");
+
+    err!("(main ((x i32) i32) (<< x true))", "no_type_match");
+
+    err!("(main ((x i32) i32) (|| x 1))", "func_type_mismatch");
 }
