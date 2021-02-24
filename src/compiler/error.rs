@@ -28,7 +28,7 @@ impl Error {
     }
 
     #[cfg(test)]
-    pub fn name<'a>(&'a self) -> &'a str {
+    pub fn name(&self) -> &str {
         self.name
     }
 
