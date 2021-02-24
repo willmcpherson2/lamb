@@ -11,16 +11,25 @@ pub fn literalise(token_stream: TokenStream) -> (TokenStream, Namespace) {
     let mut namespace = Namespace::new_module();
 
     for token in &token_stream.tokens {
-        if let Token::Other(token, _) = token {
-            if let Some(terminals) = literal(token) {
-                if namespace.get(token).is_none() {
-                    let namespaces = terminals
-                        .iter()
-                        .map(|terminal| Namespace::from(Symbol::Literal(*terminal)))
-                        .collect();
-                    namespace.insert_namespaces(token.clone(), namespaces);
-                }
-            }
+        let token = if let Token::Other(token, _) = token {
+            token
+        } else {
+            continue;
+        };
+
+        let terminals = if let Some(terminals) = literal(token) {
+            terminals
+        } else {
+            continue;
+        };
+
+        if namespace.get(token).is_none() {
+            let namespaces = terminals
+                .iter()
+                .map(|terminal| Namespace::from(Symbol::Literal(*terminal)))
+                .collect();
+
+            namespace.insert_namespaces(token.clone(), namespaces);
         }
     }
 
