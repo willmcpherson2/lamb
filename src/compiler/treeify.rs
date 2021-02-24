@@ -19,21 +19,17 @@ pub fn treeify(token_stream: TokenStream) -> TokenTree {
 }
 
 fn treeify_impl(token_stream_iter: &mut slice::Iter<'_, lex::Token>) -> Option<TokenTree> {
-    if let Some(token) = token_stream_iter.next() {
-        match token {
-            lex::Token::Open(location) => {
-                let mut tree = Vec::new();
-                while let Some(token_tree) = treeify_impl(token_stream_iter) {
-                    tree.push(token_tree);
-                }
-                Some(TokenTree::Tree(tree, *location))
+    let token = token_stream_iter.next()?;
+
+    match token {
+        lex::Token::Open(location) => {
+            let mut tree = Vec::new();
+            while let Some(token_tree) = treeify_impl(token_stream_iter) {
+                tree.push(token_tree);
             }
-            lex::Token::Close => None,
-            lex::Token::Other(ref token, location) => {
-                Some(TokenTree::Token(token.clone(), *location))
-            }
+            Some(TokenTree::Tree(tree, *location))
         }
-    } else {
-        None
+        lex::Token::Close => None,
+        lex::Token::Other(ref token, location) => Some(TokenTree::Token(token.clone(), *location)),
     }
 }
