@@ -11,7 +11,7 @@ pub struct Program {
 
 #[derive(Debug)]
 pub struct Def {
-    pub name: IdName,
+    pub name_id: NameId,
     pub func: Func,
     pub expr: Expr,
     pub location: Location,
@@ -20,19 +20,19 @@ pub struct Def {
 #[derive(Debug)]
 pub struct Func {
     pub params: Vec<Param>,
-    pub ret: Name,
+    pub ret: Type,
     pub location: Location,
 }
 
 #[derive(Debug)]
 pub enum Param {
-    NameType(NameType),
+    Decl(Decl),
     Type(Type),
 }
 
 #[derive(Debug)]
 pub enum Expr {
-    Val(IdName),
+    Val(NameId),
     Call(Call),
 }
 
@@ -43,7 +43,7 @@ pub struct Call {
 }
 
 #[derive(Debug)]
-pub struct NameType {
+pub struct Decl {
     pub name: Name,
     pub typ: Type,
     pub location: Location,
@@ -51,19 +51,19 @@ pub struct NameType {
 
 #[derive(Debug)]
 pub struct Name {
-    pub name: String,
+    pub token: String,
     pub location: Location,
 }
 
 #[derive(Debug)]
 pub struct Type {
-    pub typ: String,
+    pub token: String,
     pub location: Location,
 }
 
 #[derive(Debug)]
-pub struct IdName {
-    pub name: String,
+pub struct NameId {
+    pub token: String,
     pub id: Id,
     pub location: Location,
 }
@@ -86,133 +86,133 @@ pub fn parse(token_tree: TokenTree, namespace: Namespace) -> Result<(Program, Na
 }
 
 fn parse_def(token_tree: &TokenTree) -> Result<Def, Error> {
-    match token_tree {
+    let (tree, location) = match token_tree {
         TokenTree::Token(token, location) => {
-            err!(expected_def, *location, token)
+            return err!(expected_def, *location, token);
         }
-        TokenTree::Tree(tree, location) => {
-            let (name, name_location) = parse_def_name(tree, *location)?;
-            let (func, func_location) = parse_def_func(tree, name_location)?;
-            let expr = parse_def_expr(tree, func_location)?;
+        TokenTree::Tree(tree, location) => (tree, *location),
+    };
 
-            if let Some(token_tree) = tree.get(3) {
-                let location = match token_tree {
-                    TokenTree::Tree(_, location) | TokenTree::Token(_, location) => location,
-                };
-                return err!(unexpected_token, *location);
-            }
+    let name_id = parse_def_name(tree, location)?;
+    let func = parse_def_func(tree, name_id.location)?;
+    let expr = parse_def_expr(tree, func.location)?;
 
-            Ok(Def {
-                name: IdName {
-                    name,
-                    id: 0,
-                    location: name_location,
-                },
-                func,
-                expr,
-                location: *location,
-            })
-        }
+    if let Some(token_tree) = tree.get(3) {
+        let location = match token_tree {
+            TokenTree::Tree(_, location) | TokenTree::Token(_, location) => location,
+        };
+        return err!(unexpected_token, *location);
+    }
+
+    Ok(Def {
+        name_id,
+        func,
+        expr,
+        location,
+    })
+}
+
+fn parse_def_name(tree: &[TokenTree], tree_location: Location) -> Result<NameId, Error> {
+    let token_tree = tree
+        .get(0)
+        .ok_or_else(|| error!(expected_name, tree_location))?;
+
+    match token_tree {
+        TokenTree::Tree(_, location) => err!(expected_name, *location),
+        TokenTree::Token(token, location) => Ok(NameId {
+            token: token.clone(),
+            id: 0,
+            location: *location,
+        }),
     }
 }
 
-fn parse_def_name(tree: &[TokenTree], location: Location) -> Result<(String, Location), Error> {
-    if let Some(token_tree) = tree.get(0) {
-        match token_tree {
-            TokenTree::Tree(_, location) => err!(expected_name, *location),
-            TokenTree::Token(token, location) => Ok((token.clone(), *location)),
-        }
-    } else {
-        err!(expected_name, location)
-    }
-}
+fn parse_def_func(tree: &[TokenTree], name_location: Location) -> Result<Func, Error> {
+    let token_tree = tree
+        .get(1)
+        .ok_or_else(|| error!(expected_func_type_after_name, name_location))?;
 
-fn parse_def_func(tree: &[TokenTree], name_location: Location) -> Result<(Func, Location), Error> {
-    if let Some(token_tree) = tree.get(1) {
-        match token_tree {
-            TokenTree::Tree(tree, location) => Ok((parse_func(tree, *location)?, *location)),
-            TokenTree::Token(_, location) => err!(expected_func_type, *location),
-        }
-    } else {
-        err!(expected_func_type_after_name, name_location)
+    match token_tree {
+        TokenTree::Tree(tree, location) => parse_func(tree, *location),
+        TokenTree::Token(_, location) => err!(expected_func_type, *location),
     }
 }
 
 fn parse_def_expr(tree: &[TokenTree], func_location: Location) -> Result<Expr, Error> {
-    if let Some(token_tree) = tree.get(2) {
-        Ok(parse_expr(token_tree))
-    } else {
-        err!(expected_func_expr, func_location)
-    }
+    let token_tree = tree
+        .get(2)
+        .ok_or_else(|| error!(expected_func_expr, func_location))?;
+
+    Ok(parse_expr(token_tree))
 }
 
-fn parse_func(tree: &[TokenTree], location: Location) -> Result<Func, Error> {
-    let (ret, params) = if let Some(tree) = tree.split_last() {
-        tree
-    } else {
-        return err!(expected_type, location);
-    };
+fn parse_func(tree: &[TokenTree], tree_location: Location) -> Result<Func, Error> {
+    let (ret, params) = tree
+        .split_last()
+        .ok_or_else(|| error!(expected_type, tree_location))?;
 
-    let (token, ret_location) = match ret {
+    let (ret_token, ret_location) = match ret {
         TokenTree::Token(token, location) => (token, location),
         TokenTree::Tree(_, location) => return err!(expected_func_ret_terminal_type, *location),
     };
 
     let mut func_params = Vec::new();
     for param in params {
-        func_params.push(parse_param(&param)?);
+        func_params.push(parse_param(param)?);
     }
 
     Ok(Func {
         params: func_params,
-        ret: Name {
-            name: token.clone(),
+        ret: Type {
+            token: ret_token.clone(),
             location: *ret_location,
         },
-        location,
+        location: tree_location,
     })
 }
 
 fn parse_param(token_tree: &TokenTree) -> Result<Param, Error> {
     match token_tree {
-        TokenTree::Tree(tree, location) => {
-            let (name, typ) = if let [name, typ] = &tree[..] {
-                (name, typ)
-            } else {
-                return err!(expected_param, *location);
-            };
-
-            let name = match name {
-                TokenTree::Tree(_, location) => {
-                    return err!(expected_param_name, *location);
-                }
-                TokenTree::Token(token, location) => Name {
-                    name: token.clone(),
-                    location: *location,
-                },
-            };
-
-            let typ = match typ {
-                TokenTree::Tree(_, location) => {
-                    return err!(expected_param_type, *location);
-                }
-                TokenTree::Token(token, location) => Type {
-                    typ: token.clone(),
-                    location: *location,
-                },
-            };
-
-            Ok(Param::NameType(NameType {
-                name,
-                typ,
-                location: *location,
-            }))
-        }
+        TokenTree::Tree(tree, location) => parse_decl(tree, *location),
         TokenTree::Token(token, location) => Ok(Param::Type(Type {
-            typ: token.clone(),
+            token: token.clone(),
             location: *location,
         })),
     }
+}
+
+fn parse_decl(tree: &[TokenTree], tree_location: usize) -> Result<Param, Error> {
+    let (name, typ) = if let [name, typ] = &tree[..] {
+        (name, typ)
+    } else {
+        return err!(expected_param, tree_location);
+    };
+
+    let name = match name {
+        TokenTree::Tree(_, location) => {
+            return err!(expected_param_name, *location);
+        }
+        TokenTree::Token(token, location) => Name {
+            token: token.clone(),
+            location: *location,
+        },
+    };
+
+    let typ = match typ {
+        TokenTree::Tree(_, location) => {
+            return err!(expected_param_type, *location);
+        }
+        TokenTree::Token(token, location) => Type {
+            token: token.clone(),
+            location: *location,
+        },
+    };
+
+    Ok(Param::Decl(Decl {
+        name,
+        typ,
+        location: tree_location,
+    }))
 }
 
 fn parse_expr(token_tree: &TokenTree) -> Expr {
@@ -220,15 +220,15 @@ fn parse_expr(token_tree: &TokenTree) -> Expr {
         TokenTree::Tree(tree, location) => {
             let mut exprs = Vec::new();
             for expr in tree {
-                exprs.push(parse_expr(&expr));
+                exprs.push(parse_expr(expr));
             }
             Expr::Call(Call {
                 exprs,
                 location: *location,
             })
         }
-        TokenTree::Token(token, location) => Expr::Val(IdName {
-            name: token.clone(),
+        TokenTree::Token(token, location) => Expr::Val(NameId {
+            token: token.clone(),
             id: 0,
             location: *location,
         }),

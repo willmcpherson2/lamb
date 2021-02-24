@@ -1,21 +1,23 @@
 use super::common::Id;
 use super::generate::Arg;
 use super::generate::BinaryOp;
-use super::generate::Data;
 use super::generate::Def;
 use super::generate::Instruction;
 use super::generate::Param;
 use super::generate::Target;
 use super::generate::UnaryOp;
+use super::generate::Val;
 use super::symbol::Terminal;
-use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result;
 
 pub fn emit(target: Target) -> String {
     format!("{}", target)
 }
 
-impl fmt::Display for Target {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Target {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for def in &self.defs {
             write!(f, "{}", def)?;
         }
@@ -23,13 +25,13 @@ impl fmt::Display for Target {
     }
 }
 
-impl fmt::Display for Def {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Def {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         writeln!(
             f,
             "define {} @{}({}) {{\n{}}}",
             self.ret,
-            IdName(&self.name.name, self.name.id),
+            IdName(&self.name.token, self.name.id),
             Params(&self.params),
             Instructions(&self.instructions),
         )
@@ -38,8 +40,8 @@ impl fmt::Display for Def {
 
 struct Params<'a>(&'a Vec<Param>);
 
-impl fmt::Display for Params<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Params<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if let Some((first, rest)) = self.0.split_first() {
             write!(f, "{} %{}", first.typ, first.id)?;
             for param in rest {
@@ -52,12 +54,12 @@ impl fmt::Display for Params<'_> {
 
 struct Args<'a>(&'a Vec<Arg>);
 
-impl fmt::Display for Args<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Args<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if let Some((first, rest)) = self.0.split_first() {
-            write!(f, "{} {}", first.typ, first.data)?;
+            write!(f, "{} {}", first.typ, first.val)?;
             for arg in rest {
-                write!(f, ", {} {}", arg.typ, arg.data)?;
+                write!(f, ", {} {}", arg.typ, arg.val)?;
             }
         }
         Ok(())
@@ -66,33 +68,33 @@ impl fmt::Display for Args<'_> {
 
 struct Instructions<'a>(&'a Vec<Instruction>);
 
-impl fmt::Display for Instructions<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for instruction in self.0.iter() {
+impl Display for Instructions<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        for instruction in self.0 {
             write!(f, "{}", instruction)?;
         }
         Ok(())
     }
 }
 
-impl fmt::Display for Instruction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Instruction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Instruction::Ret(ret) => {
-                if let Some(data) = &ret.data {
-                    writeln!(f, "ret {} {}", ret.typ, data)
+                if let Some(val) = &ret.val {
+                    writeln!(f, "ret {} {}", ret.typ, val)
                 } else {
                     writeln!(f, "ret {}", ret.typ)
                 }
             }
             Instruction::Call(call) => {
-                if let Some(out) = &call.out {
+                if let Some(id) = &call.id {
                     writeln!(
                         f,
                         "%{} = call {} @{}({})",
-                        out,
+                        id,
                         call.typ,
-                        IdName(&call.call_name.name, call.call_name.id),
+                        IdName(&call.called_name.token, call.called_name.id),
                         Args(&call.args)
                     )
                 } else {
@@ -100,24 +102,24 @@ impl fmt::Display for Instruction {
                         f,
                         "call {} @{}({})",
                         call.typ,
-                        IdName(&call.call_name.name, call.call_name.id),
+                        IdName(&call.called_name.token, call.called_name.id),
                         Args(&call.args)
                     )
                 }
             }
             Instruction::Unary(unary) => match unary.op {
                 UnaryOp::Not => {
-                    writeln!(f, "%{} = xor {} {}, true", unary.out, unary.typ, unary.arg)
+                    writeln!(f, "%{} = xor {} {}, true", unary.id, unary.typ, unary.arg)
                 }
-                UnaryOp::BNot => {
-                    writeln!(f, "%{} = xor {} {}, -1", unary.out, unary.typ, unary.arg)
+                UnaryOp::BitNot => {
+                    writeln!(f, "%{} = xor {} {}, -1", unary.id, unary.typ, unary.arg)
                 }
             },
             Instruction::Binary(binary) => {
                 writeln!(
                     f,
                     "%{} = {} {} {}, {}",
-                    binary.out,
+                    binary.id,
                     Op(binary.op, binary.typ),
                     binary.typ,
                     binary.arg1,
@@ -130,28 +132,27 @@ impl fmt::Display for Instruction {
 
 struct IdName<'a>(&'a str, Id);
 
-impl fmt::Display for IdName<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for IdName<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.write_str(self.0)?;
         if self.1 != 0 {
-            write!(f, "{}", self.1)
-        } else {
-            Ok(())
+            write!(f, "{}", self.1)?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for Val {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            Val::Id(id) => write!(f, "%{}", *id),
+            Val::Literal(literal) => f.write_str(literal),
         }
     }
 }
 
-impl fmt::Display for Data {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&match self {
-            Data::Id(id) => format!("%{}", id),
-            Data::Literal(literal) => literal.to_string(),
-        })
-    }
-}
-
-impl fmt::Display for Terminal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Terminal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.write_str(match self {
             Terminal::Void => "void",
             Terminal::Bool => "i1",
@@ -172,8 +173,8 @@ impl fmt::Display for Terminal {
 
 struct Op(BinaryOp, Terminal);
 
-impl fmt::Display for Op {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Op {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         enum IntType {
             Unsigned,
             Signed,

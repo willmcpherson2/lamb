@@ -2,7 +2,7 @@ use super::common::Id;
 use super::namespace::Namespace;
 use super::parse;
 use super::parse::Expr;
-use super::parse::IdName;
+use super::parse::NameId;
 use super::parse::Program;
 use super::symbol::Func;
 use super::symbol::Symbol;
@@ -32,18 +32,18 @@ pub struct Param {
 #[derive(Debug)]
 pub struct Arg {
     pub typ: Terminal,
-    pub data: Data,
+    pub val: Val,
 }
 
 #[derive(Debug)]
-pub enum Data {
+pub enum Val {
     Id(Id),
     Literal(String),
 }
 
 #[derive(Debug)]
 pub struct Name {
-    pub name: String,
+    pub token: String,
     pub id: Id,
 }
 
@@ -58,32 +58,32 @@ pub enum Instruction {
 #[derive(Debug)]
 pub struct Ret {
     pub typ: Terminal,
-    pub data: Option<Data>,
+    pub val: Option<Val>,
 }
 
 #[derive(Debug)]
 pub struct Call {
-    pub out: Option<Id>,
+    pub id: Option<Id>,
     pub typ: Terminal,
-    pub call_name: Name,
+    pub called_name: Name,
     pub args: Vec<Arg>,
 }
 
 #[derive(Debug)]
 pub struct Unary {
-    pub out: Id,
+    pub id: Id,
     pub op: UnaryOp,
     pub typ: Terminal,
-    pub arg: Data,
+    pub arg: Val,
 }
 
 #[derive(Debug)]
 pub struct Binary {
-    pub out: Id,
+    pub id: Id,
     pub op: BinaryOp,
     pub typ: Terminal,
-    pub arg1: Data,
-    pub arg2: Data,
+    pub arg1: Val,
+    pub arg2: Val,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -95,7 +95,7 @@ pub enum Op {
 #[derive(Debug, Copy, Clone)]
 pub enum UnaryOp {
     Not,
-    BNot,
+    BitNot,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -156,7 +156,7 @@ impl IdMap {
     }
 }
 
-fn operators() -> HashMap<String, Op> {
+fn ops() -> HashMap<String, Op> {
     macro_rules! unary {
         ($s:literal, $op:tt) => {
             ($s.to_string(), Op::UnaryOp(UnaryOp::$op))
@@ -171,7 +171,7 @@ fn operators() -> HashMap<String, Op> {
 
     vec![
         unary!("!", Not),
-        unary!("~", BNot),
+        unary!("~", BitNot),
         binary!("+", Add),
         binary!("-", Sub),
         binary!("*", Mul),
@@ -201,29 +201,31 @@ struct Info<'a> {
     id_map: &'a mut IdMap,
     namespace: &'a Namespace,
     def_namespace: &'a Namespace,
-    operators: &'a HashMap<String, Op>,
+    ops: &'a HashMap<String, Op>,
 }
 
 pub fn generate(program: Program, namespace: Namespace) -> Target {
-    let operators = operators();
+    let ops = ops();
 
     let mut defs = Vec::new();
     let mut id_map = IdMap::new();
 
     for def in &program.defs {
-        let def_name = def.name.name.clone();
-        let def_namespace = namespace.get_then(&def.name.name, def.name.id).unwrap();
+        let def_name_token = def.name_id.token.clone();
+        let def_namespace = namespace
+            .get_then(&def.name_id.token, def.name_id.id)
+            .unwrap();
 
         let mut params = Vec::new();
         for param in &def.func.params {
-            let (param_id, typ) = match param {
-                parse::Param::NameType(parse::NameType { name, typ, .. }) => {
-                    (id_map.insert(name.name.clone()), &typ.typ)
+            let (param_type_token, param_id) = match param {
+                parse::Param::Decl(parse::Decl { name, typ, .. }) => {
+                    (&typ.token, id_map.insert(name.token.clone()))
                 }
-                parse::Param::Type(parse::Type { typ, .. }) => (id_map.add(), typ),
+                parse::Param::Type(parse::Type { token: typ, .. }) => (typ, id_map.add()),
             };
 
-            let param_type = get_terminal(typ, &namespace);
+            let param_type = get_terminal(param_type_token, &namespace);
 
             let param = Param {
                 typ: param_type,
@@ -232,31 +234,31 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
             params.push(param);
         }
 
-        let ret = get_terminal(&def.func.ret.name, &namespace);
+        let ret = get_terminal(&def.func.ret.token, &namespace);
 
         id_map.add();
 
         let mut instructions = Vec::new();
-        let ret_data = generate_expr(
+        let ret_val = generate_expr(
             &def.expr,
             &mut Info {
                 instructions: &mut instructions,
                 id_map: &mut id_map,
                 namespace: &namespace,
                 def_namespace,
-                operators: &operators,
+                ops: &ops,
             },
         );
         let ret_instruction = Instruction::Ret(Ret {
             typ: ret,
-            data: ret_data,
+            val: ret_val,
         });
         instructions.push(ret_instruction);
 
         let def = Def {
             name: Name {
-                name: def_name,
-                id: def.name.id,
+                token: def_name_token,
+                id: def.name_id.id,
             },
             params,
             instructions,
@@ -270,97 +272,103 @@ pub fn generate(program: Program, namespace: Namespace) -> Target {
     Target { defs }
 }
 
-fn get_terminal(typ: &str, namespace: &Namespace) -> Terminal {
-    if let Symbol::Type(Type::Terminal(terminal)) = namespace.get_then(typ, 0).unwrap().symbol() {
+fn get_terminal(type_token: &str, namespace: &Namespace) -> Terminal {
+    if let Symbol::Type(Type::Terminal(terminal)) =
+        namespace.get_then(type_token, 0).unwrap().symbol()
+    {
         *terminal
     } else {
         panic!()
     }
 }
 
-fn generate_expr(expr: &Expr, info: &mut Info) -> Option<Data> {
+fn generate_expr(expr: &Expr, info: &mut Info) -> Option<Val> {
     match expr {
-        Expr::Val(IdName { name, .. }) => {
-            let symbol = info
-                .def_namespace
-                .get_or_then(info.namespace, &name, 0)
-                .unwrap()
-                .symbol();
-
-            match symbol {
-                Symbol::Var(_) => Some(Data::Id(info.id_map.get(&name))),
-                Symbol::Literal(_) => Some(Data::Literal(name.clone())),
-                _ => panic!(),
-            }
-        }
-        Expr::Call(parse::Call { exprs, .. }) => {
-            let (parent, parent_id, children) =
-                if let Some((parent, children)) = exprs.split_first() {
-                    if let Expr::Val(IdName { name, id, .. }) = parent {
-                        (name, *id, children)
-                    } else {
-                        panic!()
-                    }
-                } else {
-                    return None;
-                };
-
-            let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) =
-                info.namespace.get_then(parent, parent_id).unwrap().symbol()
-            {
-                *ret
-            } else {
-                panic!()
-            };
-
-            let id = match info.operators.get(parent.as_str()) {
-                Some(op) => match op {
-                    Op::UnaryOp(op) => generate_unary(children, typ, *op, info),
-                    Op::BinaryOp(op) => generate_binary(children, typ, *op, info),
-                },
-                None => generate_call(children, parent, parent_id, info),
-            };
-
-            Some(Data::Id(id))
-        }
+        Expr::Val(NameId { token, .. }) => generate_val(token, info),
+        Expr::Call(parse::Call { exprs, .. }) => generate_call(exprs, info),
     }
 }
 
-fn generate_unary(children: &[Expr], typ: Terminal, op: UnaryOp, info: &mut Info) -> Id {
-    let child = children.get(0).unwrap();
+fn generate_val(token: &str, info: &mut Info) -> Option<Val> {
+    let symbol = info
+        .def_namespace
+        .get_or_then(info.namespace, token, 0)
+        .unwrap()
+        .symbol();
 
-    let arg = generate_expr(&child, info).unwrap();
-
-    let out = info.id_map.add();
-
-    let instruction = Instruction::Unary(Unary { op, out, typ, arg });
-    info.instructions.push(instruction);
-
-    out
+    match symbol {
+        Symbol::Var(_) => Some(Val::Id(info.id_map.get(token))),
+        Symbol::Literal(_) => Some(Val::Literal(token.to_string())),
+        _ => panic!(),
+    }
 }
 
-fn generate_binary(children: &[Expr], typ: Terminal, op: BinaryOp, info: &mut Info) -> Id {
+fn generate_call(exprs: &[Expr], info: &mut Info) -> Option<Val> {
+    let (parent, children) = exprs.split_first()?;
+
+    let (parent_token, parent_id) = if let Expr::Val(NameId { token, id, .. }) = parent {
+        (token, *id)
+    } else {
+        panic!()
+    };
+
+    let typ = if let Symbol::Var(Type::Func(Func { ret, .. })) = info
+        .namespace
+        .get_then(parent_token, parent_id)
+        .unwrap()
+        .symbol()
+    {
+        *ret
+    } else {
+        panic!()
+    };
+
+    let id = match info.ops.get(parent_token.as_str()) {
+        Some(op) => match op {
+            Op::UnaryOp(op) => generate_unary(*op, typ, children, info),
+            Op::BinaryOp(op) => generate_binary(*op, typ, children, info),
+        },
+        None => generate_func_call(parent_token, parent_id, children, info),
+    };
+
+    Some(Val::Id(id))
+}
+
+fn generate_unary(op: UnaryOp, typ: Terminal, children: &[Expr], info: &mut Info) -> Id {
+    let child = children.get(0).unwrap();
+
+    let arg = generate_expr(child, info).unwrap();
+
+    let id = info.id_map.add();
+
+    let instruction = Instruction::Unary(Unary { op, id, typ, arg });
+    info.instructions.push(instruction);
+
+    id
+}
+
+fn generate_binary(op: BinaryOp, typ: Terminal, children: &[Expr], info: &mut Info) -> Id {
     let child1 = children.get(0).unwrap();
     let child2 = children.get(1).unwrap();
 
-    let arg1 = generate_expr(&child1, info).unwrap();
-    let arg2 = generate_expr(&child2, info).unwrap();
+    let arg1 = generate_expr(child1, info).unwrap();
+    let arg2 = generate_expr(child2, info).unwrap();
 
-    let out = info.id_map.add();
+    let id = info.id_map.add();
 
     let instruction = Instruction::Binary(Binary {
         op,
-        out,
+        id,
         typ,
         arg1,
         arg2,
     });
     info.instructions.push(instruction);
 
-    out
+    id
 }
 
-fn generate_call(children: &[Expr], parent: &str, parent_id: Id, info: &mut Info) -> Id {
+fn generate_func_call(parent: &str, parent_id: Id, children: &[Expr], info: &mut Info) -> Id {
     let (params, ret) = if let Symbol::Var(Type::Func(Func { params, ret })) =
         info.namespace.get_then(parent, parent_id).unwrap().symbol()
     {
@@ -371,25 +379,25 @@ fn generate_call(children: &[Expr], parent: &str, parent_id: Id, info: &mut Info
 
     let mut args = Vec::new();
     for (typ, child) in params.iter().zip(children.iter()) {
-        let data = generate_expr(&child, info).unwrap();
-        let arg = Arg { typ: *typ, data };
+        let val = generate_expr(child, info).unwrap();
+        let arg = Arg { typ: *typ, val };
         args.push(arg);
     }
 
-    let call_id = parent.to_string();
+    let parent_token = parent.to_string();
 
-    let out = info.id_map.add();
+    let id = info.id_map.add();
 
     let instruction = Instruction::Call(Call {
-        out: Some(out),
+        id: Some(id),
         typ: *ret,
-        call_name: Name {
-            name: call_id,
+        called_name: Name {
+            token: parent_token,
             id: parent_id,
         },
         args,
     });
     info.instructions.push(instruction);
 
-    out
+    id
 }
