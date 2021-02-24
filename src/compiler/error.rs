@@ -9,7 +9,7 @@ pub struct Error {
 }
 
 impl Error {
-    pub fn new(
+    pub const fn new(
         name: &'static str,
         location: Option<usize>,
         message: String,
@@ -17,7 +17,7 @@ impl Error {
         compiler_line: u32,
         compiler_column: u32,
     ) -> Self {
-        Error {
+        Self {
             name,
             location,
             message,
@@ -28,11 +28,16 @@ impl Error {
     }
 
     #[cfg(test)]
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &str {
         self.name
     }
 
     pub fn print(&self, text: &str) {
+        enum State {
+            Looking,
+            Found,
+        }
+
         let location = if let Some(location) = self.location {
             location
         } else {
@@ -43,10 +48,6 @@ impl Error {
             return;
         };
 
-        enum State {
-            Looking,
-            Found,
-        }
         let mut state = State::Looking;
         let mut line = String::new();
         let mut column = 0;

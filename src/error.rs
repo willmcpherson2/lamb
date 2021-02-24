@@ -8,14 +8,14 @@ pub struct Error {
 }
 
 impl Error {
-    pub fn new(
+    pub const fn new(
         name: &'static str,
         message: String,
         lamb_file: &'static str,
         lamb_line: u32,
         lamb_column: u32,
     ) -> Self {
-        Error {
+        Self {
             name,
             message,
             lamb_file,

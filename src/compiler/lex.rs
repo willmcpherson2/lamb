@@ -13,12 +13,12 @@ pub enum Token {
 }
 
 pub fn lex(text: &str) -> TokenStream {
-    let mut tokens = Vec::new();
-
     enum State {
         Ready,
         Other,
     }
+
+    let mut tokens = Vec::new();
     let mut state = State::Ready;
 
     for (location, ch) in text.char_indices() {

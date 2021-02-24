@@ -16,8 +16,8 @@ pub struct Namespace {
 }
 
 impl From<(Symbol, HashMap<String, Vec<Namespace>>)> for Namespace {
-    fn from(parts: (Symbol, HashMap<String, Vec<Namespace>>)) -> Self {
-        Namespace {
+    fn from(parts: (Symbol, HashMap<String, Vec<Self>>)) -> Self {
+        Self {
             symbol: parts.0,
             namespace: parts.1,
         }
@@ -26,7 +26,7 @@ impl From<(Symbol, HashMap<String, Vec<Namespace>>)> for Namespace {
 
 impl From<Symbol> for Namespace {
     fn from(symbol: Symbol) -> Self {
-        Namespace {
+        Self {
             symbol,
             namespace: HashMap::new(),
         }
@@ -35,39 +35,34 @@ impl From<Symbol> for Namespace {
 
 impl Namespace {
     pub fn new_module() -> Self {
-        Namespace::from((Symbol::Module, builtins()))
+        Self::from((Symbol::Module, builtins()))
     }
 
-    pub fn symbol(&self) -> &Symbol {
+    pub const fn symbol(&self) -> &Symbol {
         &self.symbol
     }
 
-    pub fn get(&self, key: &str) -> Option<&Vec<Namespace>> {
+    pub fn get(&self, key: &str) -> Option<&Vec<Self>> {
         self.namespace.get(key)
     }
 
-    pub fn get_or<'a>(&'a self, other: &'a Namespace, key: &str) -> Option<&'a Vec<Namespace>> {
+    pub fn get_or<'a>(&'a self, other: &'a Self, key: &str) -> Option<&'a Vec<Self>> {
         self.get(key).or_else(|| other.get(key))
     }
 
-    pub fn get_then<'a>(&'a self, key: &str, id: Id) -> Option<&'a Namespace> {
+    pub fn get_then<'a>(&'a self, key: &str, id: Id) -> Option<&'a Self> {
         self.get(key).and_then(|symbols| symbols.get(id))
     }
 
-    pub fn get_or_then<'a>(
-        &'a self,
-        other: &'a Namespace,
-        key: &str,
-        id: Id,
-    ) -> Option<&'a Namespace> {
+    pub fn get_or_then<'a>(&'a self, other: &'a Self, key: &str, id: Id) -> Option<&'a Self> {
         self.get_or(other, key).and_then(|symbols| symbols.get(id))
     }
 
-    pub fn insert_namespaces(&mut self, key: String, namespaces: Vec<Namespace>) {
+    pub fn insert_namespaces(&mut self, key: String, namespaces: Vec<Self>) {
         self.namespace.insert(key, namespaces);
     }
 
-    pub fn append_namespace(&mut self, key: &str, namespace: Namespace) -> Id {
+    pub fn append_namespace(&mut self, key: &str, namespace: Self) -> Id {
         if let Some(namespaces) = self.namespace.get_mut(key) {
             let id = namespaces.len();
             namespaces.push(namespace);

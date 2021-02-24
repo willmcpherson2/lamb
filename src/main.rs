@@ -1,5 +1,7 @@
+#![warn(clippy::pedantic, clippy::nursery)]
 #![allow(clippy::collapsible_if)]
-#![warn(clippy::needless_borrow)]
+#![allow(clippy::redundant_else)]
+#![allow(clippy::needless_pass_by_value)]
 
 #[macro_use]
 mod error;

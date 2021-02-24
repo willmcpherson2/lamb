@@ -53,9 +53,7 @@ fn get_terminal(
         .get(type_token)
         .ok_or_else(|| error!(expected_defined_type, location, type_token))?;
 
-    if let Some(Symbol::Type(Type::Terminal(terminal))) =
-        namespaces.get(0).map(|namespace| namespace.symbol())
-    {
+    if let Some(Symbol::Type(Type::Terminal(terminal))) = namespaces.get(0).map(Namespace::symbol) {
         Ok(*terminal)
     } else {
         err!(expected_terminal_type, location)

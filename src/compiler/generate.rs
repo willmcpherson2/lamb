@@ -128,7 +128,7 @@ struct IdMap {
 
 impl IdMap {
     fn new() -> Self {
-        IdMap {
+        Self {
             ids: HashMap::new(),
             id_count: 0,
         }

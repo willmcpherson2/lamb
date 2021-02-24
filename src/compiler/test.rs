@@ -34,6 +34,8 @@ macro_rules! err {
 }
 
 #[test]
+#[allow(clippy::pedantic)]
+#[allow(clippy::cognitive_complexity)]
 fn test() {
     ok!(
         "(f (void) ()) (main (i32) 0)",

@@ -80,14 +80,14 @@ impl Display for Instructions<'_> {
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Instruction::Ret(ret) => {
+            Self::Ret(ret) => {
                 if let Some(val) = &ret.val {
                     writeln!(f, "ret {} {}", ret.typ, val)
                 } else {
                     writeln!(f, "ret {}", ret.typ)
                 }
             }
-            Instruction::Call(call) => {
+            Self::Call(call) => {
                 if let Some(id) = &call.id {
                     writeln!(
                         f,
@@ -107,7 +107,7 @@ impl Display for Instruction {
                     )
                 }
             }
-            Instruction::Unary(unary) => match unary.op {
+            Self::Unary(unary) => match unary.op {
                 UnaryOp::Not => {
                     writeln!(f, "%{} = xor {} {}, true", unary.id, unary.typ, unary.arg)
                 }
@@ -115,7 +115,7 @@ impl Display for Instruction {
                     writeln!(f, "%{} = xor {} {}, -1", unary.id, unary.typ, unary.arg)
                 }
             },
-            Instruction::Binary(binary) => {
+            Self::Binary(binary) => {
                 writeln!(
                     f,
                     "%{} = {} {} {}, {}",
@@ -145,8 +145,8 @@ impl Display for IdName<'_> {
 impl Display for Val {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Val::Id(id) => write!(f, "%{}", *id),
-            Val::Literal(literal) => f.write_str(literal),
+            Self::Id(id) => write!(f, "%{}", *id),
+            Self::Literal(literal) => f.write_str(literal),
         }
     }
 }
@@ -154,19 +154,19 @@ impl Display for Val {
 impl Display for Terminal {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.write_str(match self {
-            Terminal::Void => "void",
-            Terminal::Bool => "i1",
-            Terminal::U8 => "u8",
-            Terminal::U16 => "u16",
-            Terminal::U32 => "u32",
-            Terminal::U64 => "u64",
-            Terminal::I8 => "i8",
-            Terminal::I16 => "i16",
-            Terminal::I32 => "i32",
-            Terminal::I64 => "i64",
-            Terminal::F16 => "half",
-            Terminal::F32 => "float",
-            Terminal::F64 => "double",
+            Self::Void => "void",
+            Self::Bool => "i1",
+            Self::U8 => "u8",
+            Self::U16 => "u16",
+            Self::U32 => "u32",
+            Self::U64 => "u64",
+            Self::I8 => "i8",
+            Self::I16 => "i16",
+            Self::I32 => "i32",
+            Self::I64 => "i64",
+            Self::F16 => "half",
+            Self::F32 => "float",
+            Self::F64 => "double",
         })
     }
 }
@@ -181,7 +181,7 @@ impl Display for Op {
             Float,
         }
 
-        fn int_type(typ: Terminal) -> IntType {
+        const fn int_type(typ: Terminal) -> IntType {
             match typ {
                 Terminal::I8 | Terminal::I16 | Terminal::I32 | Terminal::I64 => IntType::Signed,
                 Terminal::F16 | Terminal::F32 | Terminal::F64 => IntType::Float,
@@ -208,13 +208,13 @@ impl Display for Op {
             BinaryOp::Div => instruction!(typ, "udiv", "sdiv", "fdiv"),
             BinaryOp::Rem => instruction!(typ, "urem", "srem", "frem"),
             BinaryOp::BitAnd => instruction!(typ, "and", "and", "and"),
-            BinaryOp::BitOr => instruction!(typ, "or", "or", "or"),
+            BinaryOp::BitOr => "or",
             BinaryOp::BitXor => instruction!(typ, "xor", "xor", "xor"),
             BinaryOp::LShift => instruction!(typ, "shl", "shl", "shl"),
             BinaryOp::RShift => instruction!(typ, "lshr", "lshr", "lshr"),
-            BinaryOp::And => instruction!(typ, "and", "and", "and"),
+            BinaryOp::And => "and",
             BinaryOp::Or => instruction!(typ, "or", "or", "or"),
-            BinaryOp::Xor => instruction!(typ, "xor", "xor", "xor"),
+            BinaryOp::Xor => "xor",
             BinaryOp::Equal => instruction!(typ, "icmp eq", "icmp eq", "fcmp oeq"),
             BinaryOp::NEqual => instruction!(typ, "icmp ne", "icmp ne", "fcmp une"),
             BinaryOp::LEqual => instruction!(typ, "icmp ule", "icmp sle", "fcmp ole"),
