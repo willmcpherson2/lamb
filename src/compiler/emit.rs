@@ -13,7 +13,7 @@ use std::fmt::Formatter;
 use std::fmt::Result;
 
 pub fn emit(target: Target) -> String {
-    format!("{}", target)
+    target.to_string()
 }
 
 impl Display for Target {
