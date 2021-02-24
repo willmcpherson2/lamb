@@ -1,4 +1,5 @@
 #![allow(clippy::collapsible_if)]
+#![warn(clippy::needless_borrow)]
 
 #[macro_use]
 mod error;

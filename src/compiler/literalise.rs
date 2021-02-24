@@ -12,8 +12,8 @@ pub fn literalise(token_stream: TokenStream) -> (TokenStream, Namespace) {
 
     for token in &token_stream.tokens {
         if let Token::Other(token, _) = token {
-            if let Some(terminals) = literal(&token) {
-                if namespace.get(&token).is_none() {
+            if let Some(terminals) = literal(token) {
+                if namespace.get(token).is_none() {
                     let namespaces = terminals
                         .iter()
                         .map(|terminal| Namespace::from(Symbol::Literal(*terminal)))
