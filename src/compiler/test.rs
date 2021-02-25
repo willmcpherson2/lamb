@@ -4,17 +4,20 @@ macro_rules! ok {
     ($text:literal, $code:literal) => {
         match emit($text) {
             Ok(code) => {
-                assert_eq!(code, $code);
+                if code != $code {
+                    eprintln!("\nexpected code: \n{}\ngot code:\n{}", $code, code);
+                    panic!();
+                }
             }
             Err(error) => {
-                eprintln!();
-                error.print($text);
-                eprintln!();
-                unreachable!(
-                    "\n\nexpected code: \n{}\ngot error:\n{}\n\n",
+                eprintln!(
+                    "\nexpected code: \n{}\ngot error:\n{}\n",
                     $code,
                     error.name()
                 );
+                error.print($text);
+                eprintln!();
+                panic!();
             }
         }
     };
@@ -24,10 +27,20 @@ macro_rules! err {
     ($text:literal, $error:literal) => {
         match emit($text) {
             Ok(code) => {
-                unreachable!("\n\nexpected error: \n{}\n\ngot code:\n{}\n", $error, code);
+                eprint!("\nexpected error: \n{}\n\ngot code:\n{}\n", $error, code);
+                panic!();
             }
             Err(error) => {
-                assert_eq!(error.name(), $error);
+                if error.name() != $error {
+                    eprintln!(
+                        "\nexpected error: \n{}\n\ngot error:\n{}\n",
+                        $error,
+                        error.name()
+                    );
+                    error.print($text);
+                    eprintln!();
+                    panic!();
+                }
             }
         }
     };
