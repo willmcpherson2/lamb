@@ -284,12 +284,12 @@ fn get_terminal(type_token: &str, namespace: &Namespace) -> Terminal {
 
 fn generate_expr(expr: &Expr, info: &mut Info) -> Option<Val> {
     match expr {
-        Expr::Val(NameId { token, .. }) => generate_val(token, info),
-        Expr::Call(parse::Call { exprs, .. }) => generate_call(exprs, info),
+        Expr::Val(NameId { token, .. }) => Some(generate_val(token, info)),
+        Expr::Call(parse::Call { exprs, .. }) => Some(Val::Id(generate_call(exprs, info)?)),
     }
 }
 
-fn generate_val(token: &str, info: &mut Info) -> Option<Val> {
+fn generate_val(token: &str, info: &mut Info) -> Val {
     let symbol = info
         .def_namespace
         .get_or_then(info.namespace, token, 0)
@@ -297,13 +297,13 @@ fn generate_val(token: &str, info: &mut Info) -> Option<Val> {
         .symbol();
 
     match symbol {
-        Symbol::Var(_) => Some(Val::Id(info.id_map.get(token))),
-        Symbol::Literal(_) => Some(Val::Literal(token.to_string())),
+        Symbol::Var(_) => Val::Id(info.id_map.get(token)),
+        Symbol::Literal(_) => Val::Literal(token.to_string()),
         _ => panic!(),
     }
 }
 
-fn generate_call(exprs: &[Expr], info: &mut Info) -> Option<Val> {
+fn generate_call(exprs: &[Expr], info: &mut Info) -> Option<Id> {
     let (parent, children) = exprs.split_first()?;
 
     let (parent_token, parent_id) = if let Expr::Val(NameId { token, id, .. }) = parent {
@@ -323,15 +323,13 @@ fn generate_call(exprs: &[Expr], info: &mut Info) -> Option<Val> {
         panic!()
     };
 
-    let id = match info.ops.get(parent_token.as_str()) {
+    match info.ops.get(parent_token.as_str()) {
         Some(op) => match op {
-            Op::UnaryOp(op) => generate_unary(*op, typ, children, info),
-            Op::BinaryOp(op) => generate_binary(*op, typ, children, info),
+            Op::UnaryOp(op) => Some(generate_unary(*op, typ, children, info)),
+            Op::BinaryOp(op) => Some(generate_binary(*op, typ, children, info)),
         },
         None => generate_func_call(parent_token, parent_id, children, info),
-    };
-
-    Some(Val::Id(id))
+    }
 }
 
 fn generate_unary(op: UnaryOp, typ: Terminal, children: &[Expr], info: &mut Info) -> Id {
@@ -368,7 +366,12 @@ fn generate_binary(op: BinaryOp, typ: Terminal, children: &[Expr], info: &mut In
     id
 }
 
-fn generate_func_call(parent: &str, parent_id: Id, children: &[Expr], info: &mut Info) -> Id {
+fn generate_func_call(
+    parent: &str,
+    parent_id: Id,
+    children: &[Expr],
+    info: &mut Info,
+) -> Option<Id> {
     let (params, ret) = if let Symbol::Var(Type::Func(Func { params, ret })) =
         info.namespace.get_then(parent, parent_id).unwrap().symbol()
     {
@@ -386,10 +389,14 @@ fn generate_func_call(parent: &str, parent_id: Id, children: &[Expr], info: &mut
 
     let parent_token = parent.to_string();
 
-    let id = info.id_map.add();
+    let id = if *ret == Terminal::Void {
+        None
+    } else {
+        Some(info.id_map.add())
+    };
 
     let instruction = Instruction::Call(Call {
-        id: Some(id),
+        id,
         typ: *ret,
         called_name: Name {
             token: parent_token,
