@@ -317,7 +317,7 @@ define i32 @f() {
 ret i32 0
 }
 define i32 @f1() {
-%1 = call i32 @f()
+%1 = call i32 @f1()
 ret i32 %1
 }
 define i32 @main() {
