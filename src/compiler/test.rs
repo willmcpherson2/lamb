@@ -5,13 +5,17 @@ macro_rules! ok {
         match emit($text) {
             Ok(code) => {
                 if code != $code {
-                    eprintln!("\nexpected code: \n{}\ngot code:\n{}", $code, code);
+                    eprintln!(
+                        "\ninput:\n{}\n\nexpected code: \n{}\ngot code:\n{}",
+                        $text, $code, code
+                    );
                     panic!();
                 }
             }
             Err(error) => {
                 eprintln!(
-                    "\nexpected code: \n{}\ngot error:\n{}\n",
+                    "\ninput:\n{}\n\nexpected code: \n{}\ngot error:\n{}\n",
+                    $text,
                     $code,
                     error.name()
                 );
@@ -27,13 +31,17 @@ macro_rules! err {
     ($text:literal, $error:literal) => {
         match emit($text) {
             Ok(code) => {
-                eprint!("\nexpected error: \n{}\n\ngot code:\n{}\n", $error, code);
+                eprint!(
+                    "\ninput:\n{}\n\nexpected error: \n{}\n\ngot code:\n{}\n",
+                    $text, $error, code
+                );
                 panic!();
             }
             Err(error) => {
                 if error.name() != $error {
                     eprintln!(
-                        "\nexpected error: \n{}\n\ngot error:\n{}\n",
+                        "\ninput:\n{}\n\nexpected error: \n{}\n\ngot error:\n{}\n",
+                        $text,
                         $error,
                         error.name()
                     );
